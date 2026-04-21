@@ -1,0 +1,2 @@
+Created snapshot and dashboard JSON fixtures for downstream tests.
+Validated via schema tests in tests/test_fixtures_schema.py.

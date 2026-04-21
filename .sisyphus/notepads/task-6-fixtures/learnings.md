@@ -1,0 +1,3 @@
+- Fixture snapshots should stay schema-light: schema_version, host, date, timezone, generated_at, active, applications, rhythm, and opencode.
+- Dashboard fixture should only expose stable summary keys used by downstream tests, with deterministic numeric values.
+- Validity checks can stay focused on JSON parsing plus a small required-key surface for fast regression coverage.
