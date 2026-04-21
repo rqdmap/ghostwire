@@ -1,14 +1,26 @@
 from __future__ import annotations
 
+import os
+import sys
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-DEFAULT_CONFIG_PATHS = [
-    Path("ghostwire.toml"),
-    Path.home() / ".config" / "ghostwire" / "ghostwire.toml",
-]
+
+def _default_config_paths() -> list[Path]:
+    paths = [
+        Path("ghostwire.toml"),
+        Path.home() / ".config" / "ghostwire" / "ghostwire.toml",
+    ]
+    if sys.platform == "win32":
+        appdata = os.environ.get("APPDATA")
+        win_base = Path(appdata) if appdata else Path.home() / "AppData" / "Roaming"
+        paths.append(win_base / "ghostwire" / "ghostwire.toml")
+    return paths
+
+
+DEFAULT_CONFIG_PATHS = _default_config_paths()
 
 
 @dataclass

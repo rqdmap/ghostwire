@@ -10,10 +10,20 @@ hosts = ["auto"]
 # server_url = "https://telemetry.example.com"
 
 [categorize.terminal]
-allow = ["Alacritty", "iTerm2", "kitty", "Neovim", "Code", "WezTerm", "Terminal", "Hyper"]
+allow = [
+  # macOS / Linux
+  "Alacritty", "iTerm2", "kitty", "Neovim", "Code", "WezTerm", "Terminal", "Hyper",
+  # Windows
+  "Windows Terminal", "pwsh.exe", "powershell.exe", "cmd.exe",
+]
 
 [categorize.browser]
-allow = ["Google Chrome", "Chromium", "Firefox", "Safari", "Arc", "Brave Browser"]
+allow = [
+  # macOS / Linux
+  "Google Chrome", "Chromium", "Firefox", "Safari", "Arc", "Brave Browser",
+  # Windows
+  "Microsoft Edge", "msedge.exe", "chrome.exe", "firefox.exe",
+]
 
 [host_meta.work-mac]
 label = "工作机"
@@ -22,3 +32,7 @@ platform = "macOS"
 [host_meta.home-arch]
 label = "家里机"
 platform = "Arch Linux"
+
+[host_meta.home-win]
+label = "Windows机"
+platform = "Windows"
