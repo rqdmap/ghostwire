@@ -1,0 +1,2 @@
+- Task 5: session load metrics should use union-time weighting, not a simple arithmetic mean, so idle windows with c(t)=0 never dilute avg_concurrent
+- Task 5: return_median_seconds is easiest to compute by merging overlapping bursts per session, then taking median gaps between merged spans

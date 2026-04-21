@@ -1,0 +1,16 @@
+Task: T5 concurrency sweep-line metrics
+
+Files:
+- aw_report/concurrency.py
+- tests/test_concurrency.py
+
+Verification:
+- lsp_diagnostics: aw_report/concurrency.py -> clean
+- lsp_diagnostics: tests/test_concurrency.py -> clean
+- lsp_diagnostics: aw_report/__init__.py -> clean
+- command: python3 -m pytest tests/test_concurrency.py -v
+- result: 9 passed in 0.02s
+
+Fixture check:
+- 7-day, 3-session fixture with a 4-burst overlap window produced peak_concurrent == 4
+- avg_concurrent stayed within [1.6, 1.8]

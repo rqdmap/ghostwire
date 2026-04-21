@@ -1,0 +1,2 @@
+- Task 5: implemented concurrency metrics with a grouped timestamp sweep-line so simultaneous event boundaries are handled deterministically across avg and peak calculations
+- Task 5: daily_avg_7d is derived from burst segments split at day boundaries, then recomputed per day with the same weighted formula used for the overall metric
