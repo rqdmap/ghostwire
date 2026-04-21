@@ -1,16 +1,22 @@
 from __future__ import annotations
 
 import json
+import sys
 import tomllib
-from datetime import date
+from datetime import date, datetime
 from importlib import import_module
 from pathlib import Path
 
 import click
 
 from . import __version__
-from .config import DEFAULT_CONFIG_PATHS, load_config
+from .aggregate import build_report
+from .aw_client import AWClient, discover_host_buckets
+from .config import Config, DEFAULT_CONFIG_PATHS, load_config
 from .models import Dashboard, HostMeta, HostSnapshot
+from .render_json import render_json
+from .render_md import render_markdown
+from .utils import day_range, parse_range
 
 build_host_snapshot = import_module("aw_report.snapshot").build_host_snapshot
 
@@ -190,3 +196,115 @@ def render_cmd(ctx: click.Context, in_path: Path, out_path: Path) -> None:
     svg = render_dashboard(dashboard)
     out_path.write_text(svg, encoding="utf-8")
     click.echo(f"Written to {out_path}")
+
+
+@main.group()
+@click.pass_context
+def inspect(ctx):
+    pass
+
+
+@inspect.command("hosts")
+@click.pass_context
+def inspect_hosts(ctx):
+    cfg: Config = ctx.obj["config"]
+    client = AWClient(cfg.base_url, cfg.timeout_seconds)
+    try:
+        host_buckets = discover_host_buckets(client)
+        for host, bmap in sorted(host_buckets.items()):
+            click.echo(f"\n{host}:")
+            for logical, bid in sorted(bmap.items()):
+                click.echo(f"  {logical:8s} → {bid}")
+    finally:
+        client.close()
+
+
+@inspect.command("buckets")
+@click.pass_context
+def inspect_buckets(ctx):
+    cfg: Config = ctx.obj["config"]
+    client = AWClient(cfg.base_url, cfg.timeout_seconds)
+    try:
+        buckets = client.list_buckets()
+        for bid, info in sorted(buckets.items()):
+            click.echo(f"{info.type:25s}  {info.hostname:30s}  {bid}")
+    finally:
+        client.close()
+
+
+def _resolve_time(report_type, day_str, range_start, range_end, cfg):
+    if report_type == "day":
+        if not day_str:
+            day_str = date.today().isoformat()
+        d = date.fromisoformat(day_str)
+        return day_range(d, cfg.timezone), "day"
+    else:
+        if not range_start or not range_end:
+            click.echo("Error: range requires --start and --end", err=True)
+            sys.exit(1)
+        return parse_range(range_start, range_end, cfg.timezone), "range"
+
+
+@main.command()
+@click.argument("report_type", type=click.Choice(["day", "range"]))
+@click.argument("day_str", required=False, default=None)
+@click.option("--start", "range_start", default=None)
+@click.option("--end", "range_end", default=None)
+@click.option("--format", "fmt", type=click.Choice(["md", "json"]), default=None)
+@click.option("--hosts", default=None)
+@click.option(
+    "-o", "--output", "output_path", type=click.Path(path_type=Path), default=None
+)
+@click.pass_context
+def report(ctx, report_type, day_str, range_start, range_end, fmt, hosts, output_path):
+    cfg: Config = ctx.obj["config"]
+    if hosts:
+        cfg.hosts = [h.strip() for h in hosts.split(",")]
+    (start, end), rtype = _resolve_time(
+        report_type, day_str, range_start, range_end, cfg
+    )
+    fmt = fmt or cfg.default_format
+    client = AWClient(cfg.base_url, cfg.timeout_seconds)
+    try:
+        facts = build_report(client, start, end, rtype, cfg)
+    finally:
+        client.close()
+    if fmt == "json":
+        output = render_json(facts)
+    else:
+        output = render_markdown(facts)
+    if output_path:
+        output_path.write_text(output, encoding="utf-8")
+        click.echo(f"Written to {output_path}")
+    else:
+        click.echo(output)
+
+
+@main.command()
+@click.argument("report_type", type=click.Choice(["day", "range"]))
+@click.argument("day_str", required=False, default=None)
+@click.option("--start", "range_start", default=None)
+@click.option("--end", "range_end", default=None)
+@click.option("--hosts", default=None)
+@click.option(
+    "-o", "--output", "output_path", type=click.Path(path_type=Path), default=None
+)
+@click.pass_context
+def facts(ctx, report_type, day_str, range_start, range_end, hosts, output_path):
+    cfg: Config = ctx.obj["config"]
+    if hosts:
+        cfg.hosts = [h.strip() for h in hosts.split(",")]
+    (start, end), rtype = _resolve_time(
+        report_type, day_str, range_start, range_end, cfg
+    )
+    client = AWClient(cfg.base_url, cfg.timeout_seconds)
+    try:
+        report_facts = build_report(client, start, end, rtype, cfg)
+    finally:
+        client.close()
+    output = render_json(report_facts)
+    if output_path:
+        output_path.write_text(output, encoding="utf-8")
+        click.echo(f"Written to {output_path}")
+    else:
+        click.echo(output)
