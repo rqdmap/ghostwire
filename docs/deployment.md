@@ -3,7 +3,7 @@
 Three independent pieces:
 
 1. **Server** — runs on your VPS, accepts uploads and serves the rendered dashboard.
-2. **Local collector** — runs on each machine (macOS, Arch), uploads daily snapshot.
+2. **Local collector** — runs on each machine (macOS, Arch, Windows), uploads daily snapshot.
 3. **GitHub Action** — pulls `dashboard.svg` from the server and commits it into your profile repo.
 
 There is no GitHub self-hosted runner anywhere in this design.
@@ -181,6 +181,41 @@ WantedBy=timers.target
 systemctl --user enable --now ghostwire.timer
 systemctl --user list-timers | grep ghostwire
 ```
+
+### Windows — Task Scheduler
+
+Place your config at `%APPDATA%\ghostwire\ghostwire.toml` (e.g. `C:\Users\you\AppData\Roaming\ghostwire\ghostwire.toml`).
+
+> **App names on Windows:** ActivityWatch reports the process name as seen by the OS watcher.
+> Common values are `"Windows Terminal"`, `"pwsh.exe"`, `"powershell.exe"`, `"cmd.exe"`,
+> `"msedge.exe"`, `"chrome.exe"`, and `"firefox.exe"`.
+> Run `ghostwire collect --host <host-id>` once and inspect the JSON to see the exact names
+> your machine reports, then adjust `[categorize.terminal]` / `[categorize.browser]` accordingly.
+>
+> **OpenCode:** not available on Windows; the collector automatically skips it when the database
+> file is absent — no extra flags needed.
+
+Create a one-line wrapper script, e.g. `C:\Tools\ghostwire-upload.bat`:
+
+```bat
+@echo off
+set GHOSTWIRE_UPLOAD_TOKEN=...
+ghostwire collect-and-upload --host home-win --server https://telemetry.example.com
+```
+
+Then register it with Task Scheduler (PowerShell, run as Administrator):
+
+```powershell
+$action  = New-ScheduledTaskAction -Execute "C:\Tools\ghostwire-upload.bat"
+$trigger = New-ScheduledTaskTrigger -Daily -At "23:30"
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+Register-ScheduledTask -TaskName "GhostwireUpload" `
+    -Action $action -Trigger $trigger -Settings $settings `
+    -RunLevel Highest -Force
+```
+
+Or use Task Scheduler GUI: create a Basic Task, set the trigger to "Daily at 23:30", and point
+the action at the batch script.
 
 ### Debugging
 
