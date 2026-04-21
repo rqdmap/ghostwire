@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from aw_report.concurrency import Burst
 from aw_report.models import HostSnapshot
 
 if TYPE_CHECKING:
-    from aw_report.models import BestDay, Cards, TimelineEntry
+    from aw_report.models import BestDay, Cards, Dashboard, TimelineEntry
 
 
 def merge_host_snapshots(snapshots: list[HostSnapshot]) -> dict:
@@ -197,4 +197,107 @@ def build_cards(
         tokens_7d_delta_pct=compute_delta_pct(tokens_7d, tokens_prev_7d),
         workstations=ws_entries,
         session_load=session_load,
+    )
+
+
+def aggregate(
+    snapshots: list["HostSnapshot"],
+    today: Optional[date] = None,
+) -> "Dashboard":
+    from datetime import date as date_type
+
+    from aw_report.concurrency import compute_concurrency
+    from aw_report.models import (
+        ApplicationEntry,
+        Dashboard,
+        DashboardHeader,
+        DashboardRange,
+        ModelEntry,
+    )
+
+    if today is None:
+        today = date_type.today()
+
+    merged_by_date = merge_snapshots_by_date(snapshots)
+    timeline_30d = build_timeline_30d(merged_by_date, today)
+
+    cutoff = today - timedelta(days=30)
+    prev_snapshots = [s for s in snapshots if s.date < cutoff.isoformat()]
+    prev_merged = merge_snapshots_by_date(prev_snapshots)
+    timeline_prev_30d = build_timeline_30d(prev_merged, cutoff)
+
+    rhythm_7d = compute_rhythm_7d(merged_by_date, today)
+    best_day = select_best_day(timeline_30d)
+
+    all_bursts: list[Burst] = []
+    for merged in merged_by_date.values():
+        all_bursts.extend(merged.get("bursts", []))
+    concurrency_metrics = compute_concurrency(all_bursts)
+
+    ws_totals: dict[tuple[str, str], int] = {}
+    for merged in merged_by_date.values():
+        for workstation in merged.get("workstations", []):
+            key = (workstation["label"], workstation["platform"])
+            ws_totals[key] = ws_totals.get(key, 0) + workstation["seconds"]
+    workstations = [
+        {"label": label, "platform": platform, "seconds": seconds}
+        for (label, platform), seconds in ws_totals.items()
+    ]
+
+    cards = build_cards(
+        timeline_30d=timeline_30d,
+        timeline_prev_30d=timeline_prev_30d,
+        concurrency=concurrency_metrics,
+        workstations=workstations,
+        today=today,
+    )
+
+    app_totals: dict[str, int] = {"terminal": 0, "browser": 0, "other": 0}
+    for merged in merged_by_date.values():
+        by_category = merged.get("by_category", {})
+        for category in app_totals:
+            app_totals[category] += by_category.get(category, 0)
+    category_labels = {"terminal": "终端", "browser": "浏览器", "other": "其他"}
+    applications_30d = [
+        ApplicationEntry(
+            category=category, label=category_labels[category], seconds=seconds
+        )
+        for category, seconds in sorted(
+            app_totals.items(), key=lambda item: item[1], reverse=True
+        )
+    ]
+
+    model_totals: dict[str, int] = {}
+    for merged in merged_by_date.values():
+        for model, tokens in merged.get("opencode_by_model", {}).items():
+            model_totals[model] = model_totals.get(model, 0) + tokens
+    models_30d = sorted(
+        [
+            ModelEntry(model=model, tokens=tokens)
+            for model, tokens in model_totals.items()
+        ],
+        key=lambda entry: entry.tokens,
+        reverse=True,
+    )
+
+    generated_at = datetime.now().isoformat()
+    start_date = (today - timedelta(days=29)).isoformat()
+    return Dashboard(
+        generated_at=generated_at,
+        range=DashboardRange(
+            days=30,
+            start=start_date,
+            end=today.isoformat(),
+            timezone="Asia/Shanghai",
+        ),
+        header=DashboardHeader(
+            hosts_count=len({snapshot.host.id for snapshot in snapshots}),
+            synced_at=generated_at,
+        ),
+        cards=cards,
+        timeline_30d=timeline_30d,
+        best_day=best_day,
+        applications_30d=applications_30d,
+        models_30d=models_30d,
+        rhythm_7d=rhythm_7d,
     )
