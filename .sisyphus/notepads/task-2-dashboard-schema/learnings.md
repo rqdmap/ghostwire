@@ -1,0 +1,3 @@
+- Dashboard.to_json() returns a plain dict, which makes validation and roundtrip tests simple.
+- validate() can enforce banned field detection by scanning serialized JSON text, not just dataclass attributes.
+- from_json() should accept either a dict or a JSON string so tests and callers can use whichever is most convenient.

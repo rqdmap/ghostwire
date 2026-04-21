@@ -1,0 +1,15 @@
+Dashboard schema fields added to aw_report/models.py:
+- WorkstationEntry
+- SessionLoad
+- Cards
+- TimelineEntry
+- BestDay
+- ApplicationEntry
+- ModelEntry
+- DashboardRange
+- DashboardHeader
+- Dashboard
+
+Verification:
+- python3 -m pytest tests/test_dashboard_schema.py -v
+- Result: 6 passed
