@@ -1,0 +1,23 @@
+Task 7 evidence
+===============
+
+Files added:
+- aw_report/opencode.py
+- tests/test_opencode.py
+
+Verification:
+- lsp_diagnostics: clean for aw_report/opencode.py
+- lsp_diagnostics: clean for tests/test_opencode.py
+- command: python3 -m pytest tests/test_opencode.py -v
+- result: 9 passed
+
+Pytest output summary:
+- tests/test_opencode.py::test_find_db_prefers_opencode_2_db PASSED
+- tests/test_opencode.py::test_find_db_falls_back_to_legacy_name PASSED
+- tests/test_opencode.py::test_read_sessions_hashes_session_ids_and_keeps_metadata_only PASSED
+- tests/test_opencode.py::test_read_sessions_returns_empty_when_db_is_missing PASSED
+- tests/test_opencode.py::test_extract_bursts_keeps_boundary_gap_in_same_burst PASSED
+- tests/test_opencode.py::test_extract_bursts_splits_when_gap_exceeds_boundary PASSED
+- tests/test_opencode.py::test_extract_bursts_groups_each_session_independently PASSED
+- tests/test_opencode.py::test_extract_token_usage_supports_multiple_usage_shapes PASSED
+- tests/test_opencode.py::test_extract_token_usage_returns_zero_without_usage PASSED
