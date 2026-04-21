@@ -1,0 +1,4 @@
+2026-04-21
+- `aw-report aggregate --help` and `aw-report render --help` succeeded
+- `python3 -m pytest tests/test_cli_aggregate_render.py -v` passed
+- `python3 -m pytest -v` passed: 106 passed

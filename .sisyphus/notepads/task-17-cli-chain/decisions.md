@@ -1,0 +1,2 @@
+- Kept `aggregate` and `render` as top-level commands on `main` to preserve the existing CLI shape.
+- Serialized dashboard output with `json.dumps(..., ensure_ascii=False)` so the generated file stays valid JSON and readable.

@@ -1,0 +1,2 @@
+- Added CLI commands by wiring Click subcommands to module-level callables so tests can patch them cleanly.
+- Used defensive imports for optional renderer support so the CLI still loads when `render_svg.py` is unavailable.
