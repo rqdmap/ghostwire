@@ -2,7 +2,7 @@ import json
 import importlib.util
 import sqlite3
 import sys
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -156,6 +156,59 @@ def test_read_sessions_returns_empty_when_db_is_missing(tmp_path) -> None:
     missing = tmp_path / "missing.db"
 
     assert read_sessions(date(2026, 4, 21), db_path=missing) == []
+
+
+def test_read_sessions_supports_custom_reporting_window(
+    monkeypatch, tmp_path
+) -> None:
+    target_day = date(2026, 4, 21)
+    sh_tz = timezone(timedelta(hours=8))
+    raw_session_id = "ses-custom-window"
+    connection = build_connection(
+        [
+            (
+                raw_session_id,
+                to_ms("2026-04-22T00:30:00+08:00"),
+                {
+                    "role": "user",
+                    "time": {"created": to_ms("2026-04-22T00:30:00+08:00")},
+                },
+            ),
+            (
+                raw_session_id,
+                to_ms("2026-04-22T06:01:00+08:00"),
+                {
+                    "role": "user",
+                    "time": {"created": to_ms("2026-04-22T06:01:00+08:00")},
+                },
+            ),
+        ]
+    )
+    db_path = tmp_path / "mock.db"
+    db_path.touch()
+    monkeypatch.setattr(opencode.sqlite3, "connect", lambda _: connection)
+
+    sessions = read_sessions(
+        target_day,
+        db_path=db_path,
+        window_start=datetime(2026, 4, 21, 6, 0, tzinfo=sh_tz),
+        window_end=datetime(2026, 4, 22, 6, 0, tzinfo=sh_tz),
+    )
+
+    assert sessions == [
+        {
+            "session_id": hash_session_id(raw_session_id),
+            "messages": [
+                {
+                    "session_id": hash_session_id(raw_session_id),
+                    "role": "user",
+                    "time_created_ms": to_ms("2026-04-22T00:30:00+08:00"),
+                    "model_id": None,
+                    "provider_id": None,
+                }
+            ],
+        }
+    ]
 
 
 def test_extract_bursts_keeps_boundary_gap_in_same_burst() -> None:

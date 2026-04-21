@@ -4,6 +4,7 @@ import os
 import sys
 import tomllib
 from dataclasses import dataclass, field
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -26,11 +27,28 @@ DEFAULT_CONFIG_PATHS = _default_config_paths()
 @dataclass
 class Config:
     timezone: ZoneInfo = field(default_factory=lambda: ZoneInfo("Asia/Shanghai"))
+    day_start: time = field(default_factory=lambda: time(0, 0))
     base_url: str = "http://127.0.0.1:5600"
     timeout_seconds: int = 30
     hosts: list[str] = field(default_factory=lambda: ["auto"])
     categorize_terminal: list[str] = field(default_factory=list)
     categorize_browser: list[str] = field(default_factory=list)
+
+    def reporting_window(self, target_date: date) -> tuple[datetime, datetime]:
+        start = datetime.combine(target_date, self.day_start, tzinfo=self.timezone)
+        return start, start + timedelta(days=1)
+
+    def reporting_date(self, now: datetime | None = None) -> date:
+        current = now or datetime.now(self.timezone)
+        if current.tzinfo is None:
+            current = current.replace(tzinfo=self.timezone)
+        else:
+            current = current.astimezone(self.timezone)
+
+        boundary = datetime.combine(current.date(), self.day_start, tzinfo=self.timezone)
+        if current < boundary:
+            return current.date() - timedelta(days=1)
+        return current.date()
 
 
 def load_config(path: Path | None = None) -> Config:
@@ -54,9 +72,26 @@ def _parse(path: Path) -> Config:
 
     return Config(
         timezone=ZoneInfo(general.get("timezone", "Asia/Shanghai")),
+        day_start=_parse_day_start(general.get("day_start", "00:00")),
         base_url=aw.get("base_url", "http://127.0.0.1:5600"),
         timeout_seconds=aw.get("timeout_seconds", 30),
         hosts=aw.get("hosts", ["auto"]),
         categorize_terminal=terminal.get("allow", []),
         categorize_browser=browser.get("allow", []),
     )
+
+
+def _parse_day_start(value: object) -> time:
+    if isinstance(value, time):
+        parsed = value
+    elif isinstance(value, str):
+        try:
+            parsed = time.fromisoformat(value)
+        except ValueError as exc:
+            raise ValueError(f"invalid general.day_start: {value!r}") from exc
+    else:
+        raise ValueError(f"invalid general.day_start: {value!r}")
+
+    if parsed.tzinfo is not None:
+        raise ValueError("general.day_start must not include timezone info")
+    return parsed.replace(microsecond=0)

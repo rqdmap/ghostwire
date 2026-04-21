@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from datetime import date, datetime, time
 from importlib import import_module
+from zoneinfo import ZoneInfo
 
 from ghostwire.config import Config, load_config
 
@@ -43,6 +45,7 @@ def test_load_config_parses_categorize_sections(tmp_path) -> None:
         """
 [general]
 timezone = "Asia/Shanghai"
+day_start = "06:00"
 
 [activitywatch]
 base_url = "http://127.0.0.1:5600"
@@ -71,6 +74,7 @@ allow = ["Safari"]
 
     config = load_config(path)
 
+    assert config.day_start == time(6, 0)
     assert config.categorize_terminal == ["Neovim"]
     assert config.categorize_browser == ["Safari"]
 
@@ -106,3 +110,25 @@ dominance_ratio = 1.5
     assert config.categorize_terminal == []
     assert config.categorize_browser == []
     assert categorize("Terminal.app", config) == "other"
+
+
+def test_reporting_window_uses_configured_day_start() -> None:
+    config = Config(timezone=ZoneInfo("Asia/Shanghai"), day_start=time(6, 0))
+
+    start, end = config.reporting_window(date(2026, 4, 21))
+
+    assert start == datetime(2026, 4, 21, 6, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    assert end == datetime(2026, 4, 22, 6, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+
+def test_reporting_date_rolls_back_before_day_start() -> None:
+    config = Config(timezone=ZoneInfo("Asia/Shanghai"), day_start=time(6, 0))
+
+    assert (
+        config.reporting_date(datetime(2026, 4, 22, 5, 59, tzinfo=ZoneInfo("Asia/Shanghai")))
+        == date(2026, 4, 21)
+    )
+    assert (
+        config.reporting_date(datetime(2026, 4, 22, 6, 0, tzinfo=ZoneInfo("Asia/Shanghai")))
+        == date(2026, 4, 22)
+    )

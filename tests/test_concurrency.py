@@ -1,5 +1,5 @@
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 
 import pytest
 
@@ -115,6 +115,15 @@ def test_daily_avg_7d_keeps_only_last_seven_days() -> None:
 
     assert len(metrics.daily_avg_7d) == 7
     assert all(day_avg == pytest.approx(1.0) for day_avg in metrics.daily_avg_7d)
+
+
+def test_daily_avg_7d_respects_custom_day_start() -> None:
+    metrics = compute_concurrency(
+        [burst("2026-04-01T05:30:00+00:00", "2026-04-01T06:30:00+00:00", "s1")],
+        day_start=time(6, 0),
+    )
+
+    assert metrics.daily_avg_7d == [pytest.approx(1.0), pytest.approx(1.0)]
 
 
 def test_seven_day_fixture_hits_expected_peak_and_average_range() -> None:

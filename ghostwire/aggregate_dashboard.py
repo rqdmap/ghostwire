@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING, Optional
 
 from .concurrency import Burst
@@ -203,6 +203,8 @@ def build_cards(
 def aggregate(
     snapshots: list["HostSnapshot"],
     today: Optional[date] = None,
+    timezone_name: str = "Asia/Shanghai",
+    day_start: time = time.min,
 ) -> "Dashboard":
     from datetime import date as date_type
 
@@ -232,7 +234,7 @@ def aggregate(
     all_bursts: list[Burst] = []
     for merged in merged_by_date.values():
         all_bursts.extend(merged.get("bursts", []))
-    concurrency_metrics = compute_concurrency(all_bursts)
+    concurrency_metrics = compute_concurrency(all_bursts, day_start=day_start)
 
     ws_totals: dict[tuple[str, str], int] = {}
     for merged in merged_by_date.values():
@@ -288,7 +290,7 @@ def aggregate(
             days=30,
             start=start_date,
             end=today.isoformat(),
-            timezone="Asia/Shanghai",
+            timezone=timezone_name,
         ),
         header=DashboardHeader(
             hosts_count=len({snapshot.host.id for snapshot in snapshots}),

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from statistics import median
 
 
@@ -21,14 +21,17 @@ class ConcurrencyMetrics:
     daily_avg_7d: list[float] = field(default_factory=list)
 
 
-def compute_concurrency(bursts: list[Burst]) -> ConcurrencyMetrics:
+def compute_concurrency(
+    bursts: list[Burst],
+    day_start: time = time.min,
+) -> ConcurrencyMetrics:
     normalized = [burst for burst in bursts if burst.end > burst.start]
     if not normalized:
         return ConcurrencyMetrics()
 
     avg_concurrent, peak_concurrent = _weighted_average_and_peak(normalized)
     return_median_seconds = _return_median_seconds(normalized)
-    daily_avg_7d = _daily_average_7d(normalized)
+    daily_avg_7d = _daily_average_7d(normalized, day_start)
 
     return ConcurrencyMetrics(
         avg_concurrent=avg_concurrent,
@@ -98,10 +101,10 @@ def _return_median_seconds(bursts: list[Burst]) -> float:
     return float(median(gaps))
 
 
-def _daily_average_7d(bursts: list[Burst]) -> list[float]:
+def _daily_average_7d(bursts: list[Burst], day_start: time) -> list[float]:
     per_day: dict[date, list[Burst]] = defaultdict(list)
     for burst in bursts:
-        for day, day_burst in _split_burst_by_day(burst):
+        for day, day_burst in _split_burst_by_day(burst, day_start):
             per_day[day].append(day_burst)
 
     last_days = sorted(per_day)[-7:]
@@ -112,22 +115,28 @@ def _daily_average_7d(bursts: list[Burst]) -> list[float]:
     return averages
 
 
-def _split_burst_by_day(burst: Burst) -> list[tuple[date, Burst]]:
+def _split_burst_by_day(burst: Burst, day_start: time) -> list[tuple[date, Burst]]:
     parts: list[tuple[date, Burst]] = []
     cursor = burst.start
 
     while cursor < burst.end:
-        next_day = datetime.combine(
-            cursor.date(), datetime.min.time(), tzinfo=cursor.tzinfo
-        )
+        day_label = _logical_day(cursor, day_start)
+        next_day = datetime.combine(day_label, day_start, tzinfo=cursor.tzinfo)
         next_day += timedelta(days=1)
         part_end = min(burst.end, next_day)
         parts.append(
             (
-                cursor.date(),
+                day_label,
                 Burst(start=cursor, end=part_end, session_id=burst.session_id),
             )
         )
         cursor = part_end
 
     return parts
+
+
+def _logical_day(value: datetime, day_start: time) -> date:
+    boundary = datetime.combine(value.date(), day_start, tzinfo=value.tzinfo)
+    if value < boundary:
+        return value.date() - timedelta(days=1)
+    return value.date()

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, time
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -9,7 +10,7 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient  # noqa: E402
 
 from ghostwire.models import HostMeta, HostSnapshot  # noqa: E402
-from ghostwire.server import ServerConfig, create_app  # noqa: E402
+from ghostwire.server import ServerConfig, _logical_today, create_app  # noqa: E402
 
 HOST_TOKEN = "host-secret"
 READ_TOKEN = "read-secret"
@@ -212,3 +213,23 @@ def test_dashboard_svg_renders_xml(server):
     assert r.status_code == 200
     assert r.headers["content-type"].startswith("image/svg+xml")
     assert r.text.lstrip().startswith("<")
+
+
+def test_logical_today_respects_configured_day_start(monkeypatch):
+    config = ServerConfig(
+        data_dir=Path("/tmp/ghostwire-test"),
+        host_token=HOST_TOKEN,
+        read_token=READ_TOKEN,
+        timezone=ZoneInfo("Asia/Shanghai"),
+        day_start=time(6, 0),
+    )
+
+    class FrozenDatetime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            current = cls(2026, 4, 22, 5, 59, tzinfo=ZoneInfo("Asia/Shanghai"))
+            return current if tz is None else current.astimezone(tz)
+
+    monkeypatch.setattr("ghostwire.server.datetime", FrozenDatetime)
+
+    assert _logical_today(config) == date(2026, 4, 21)

@@ -51,6 +51,12 @@ def _load_upload_section(raw: dict) -> dict:
     return section if isinstance(section, dict) else {}
 
 
+def _resolve_target_date(date_str: str | None, cfg) -> date:
+    if date_str:
+        return parse_date(date_str)
+    return cfg.reporting_date()
+
+
 @click.group()
 @click.option("--config", "config_path", type=click.Path(path_type=Path), default=None)
 @click.pass_context
@@ -81,9 +87,9 @@ def collect(
     """Build a HostSnapshot from local AW + OpenCode and write JSON."""
     raw = _load_raw_config(ctx.obj.get("config_path"))
     host_meta = _load_host_meta(raw, host_id)
-    target_date = parse_date(date_str)
 
     cfg = ctx.obj["config"]
+    target_date = _resolve_target_date(date_str, cfg)
     client = AWClient(cfg.base_url, cfg.timeout_seconds)
     try:
         snapshot = build_host_snapshot(
@@ -182,8 +188,8 @@ def collect_and_upload(
         raise click.ClickException(str(exc)) from exc
 
     host_meta = _load_host_meta(raw, host_id)
-    target_date = parse_date(date_str)
     cfg = ctx.obj["config"]
+    target_date = _resolve_target_date(date_str, cfg)
     client = AWClient(cfg.base_url, cfg.timeout_seconds)
     try:
         snapshot = build_host_snapshot(
@@ -216,7 +222,9 @@ def collect_and_upload(
 @click.option("--port", default=8000, type=int)
 @click.option("--host-token-env", default="GHOSTWIRE_HOST_TOKEN")
 @click.option("--read-token-env", default="GHOSTWIRE_READ_TOKEN")
+@click.pass_context
 def serve(
+    ctx: click.Context,
     data_dir: Path,
     bind_host: str,
     port: int,
@@ -234,10 +242,13 @@ def serve(
         )
     from .server import run
 
+    cfg = ctx.obj["config"]
     run(
         data_dir=data_dir,
         host_token=host_token,
         read_token=read_token,
+        timezone=cfg.timezone,
+        day_start=cfg.day_start,
         host=bind_host,
         port=port,
     )

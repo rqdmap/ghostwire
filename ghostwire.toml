@@ -1,5 +1,6 @@
 [general]
 timezone = "Asia/Shanghai"
+day_start = "06:00"
 
 [activitywatch]
 base_url = "http://127.0.0.1:5600"
@@ -20,19 +21,19 @@ allow = [
 [categorize.browser]
 allow = [
   # macOS / Linux
-  "Google Chrome", "Chromium", "Firefox", "Safari", "Arc", "Brave Browser",
+  "Google Chrome", "Google-chrome", "Chromium", "Firefox", "Safari", "Arc", "Brave Browser",
   # Windows
   "Microsoft Edge", "msedge.exe", "chrome.exe", "firefox.exe",
 ]
 
 [host_meta.work-mac]
-label = "工作机"
+label = "Work"
 platform = "macOS"
 
 [host_meta.home-arch]
-label = "家里机"
+label = "Home"
 platform = "Arch Linux"
 
 [host_meta.home-win]
-label = "Windows机"
+label = "Home"
 platform = "Windows"

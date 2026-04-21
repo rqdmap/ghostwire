@@ -56,7 +56,11 @@ class _RawMessage:
 
 
 def read_sessions(
-    target_date: date, db_path: Optional[Path] = None
+    target_date: date,
+    db_path: Optional[Path] = None,
+    *,
+    window_start: Optional[datetime] = None,
+    window_end: Optional[datetime] = None,
 ) -> list[dict[str, Any]]:
     """Return sessions that touched ``target_date``.
 
@@ -68,8 +72,9 @@ def read_sessions(
     if resolved is None or not resolved.exists():
         return []
 
-    start_ms, end_ms = _day_bounds_ms(target_date)
-    raw = _read_raw_messages(resolved, start_ms, end_ms, target_date)
+    start_ms, end_ms = _window_bounds_ms(target_date, window_start, window_end)
+    filter_date = target_date if window_start is None and window_end is None else None
+    raw = _read_raw_messages(resolved, start_ms, end_ms, filter_date)
     deduped = _dedupe_fork_messages(raw)
 
     grouped: dict[str, list[_RawMessage]] = defaultdict(list)
@@ -97,7 +102,10 @@ def read_sessions(
 
 
 def _read_raw_messages(
-    db_path: Path, start_ms: int, end_ms: int, target_date: date
+    db_path: Path,
+    start_ms: int,
+    end_ms: int,
+    filter_date: Optional[date],
 ) -> list[_RawMessage]:
     try:
         connection = sqlite3.connect(str(db_path))
@@ -117,7 +125,9 @@ def _read_raw_messages(
             created_ms = _coerce_int(payload.get("time", {}).get("created"))
             if created_ms is None:
                 created_ms = _coerce_int(row["time_created"])
-            if created_ms is None or _date_from_ms(created_ms) != target_date:
+            if created_ms is None:
+                continue
+            if filter_date is not None and _date_from_ms(created_ms) != filter_date:
                 continue
 
             raw.append(
@@ -259,7 +269,11 @@ def extract_token_usage(messages: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def build_daily_opencode(
-    target_date: date, db_path: Optional[Path] = None
+    target_date: date,
+    db_path: Optional[Path] = None,
+    *,
+    window_start: Optional[datetime] = None,
+    window_end: Optional[datetime] = None,
 ) -> list[dict[str, Any]]:
     """Return the OpenCode payload shape expected by ``build_host_snapshot``.
 
@@ -272,7 +286,12 @@ def build_daily_opencode(
             "bursts": [{"start": "...iso...", "end": "...iso..."}],
         }
     """
-    sessions = read_sessions(target_date, db_path=db_path)
+    sessions = read_sessions(
+        target_date,
+        db_path=db_path,
+        window_start=window_start,
+        window_end=window_end,
+    )
     out: list[dict[str, Any]] = []
     for session in sessions:
         messages = session["messages"]
@@ -300,6 +319,18 @@ def _day_bounds_ms(target_date: date) -> tuple[int, int]:
     start = datetime.combine(target_date, time.min, tzinfo=local_tz)
     end = start + timedelta(days=1)
     return int(start.timestamp() * 1000), int(end.timestamp() * 1000)
+
+
+def _window_bounds_ms(
+    target_date: date,
+    window_start: Optional[datetime],
+    window_end: Optional[datetime],
+) -> tuple[int, int]:
+    if window_start is None and window_end is None:
+        return _day_bounds_ms(target_date)
+    if window_start is None or window_end is None:
+        raise ValueError("window_start and window_end must be provided together")
+    return int(window_start.timestamp() * 1000), int(window_end.timestamp() * 1000)
 
 
 def _date_from_ms(timestamp_ms: int) -> date:

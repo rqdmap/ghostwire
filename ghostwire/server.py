@@ -22,10 +22,11 @@ import os
 import re
 import secrets
 import tempfile
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, field
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Header, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -43,6 +44,8 @@ class ServerConfig:
     data_dir: Path
     host_token: str
     read_token: str
+    timezone: ZoneInfo = field(default_factory=lambda: ZoneInfo("Asia/Shanghai"))
+    day_start: time = field(default_factory=lambda: time(0, 0))
 
 
 def create_app(config: ServerConfig) -> FastAPI:
@@ -101,7 +104,7 @@ def create_app(config: ServerConfig) -> FastAPI:
         authorization: Optional[str] = Header(default=None),
     ) -> Response:
         require_token(authorization, config.read_token)
-        dashboard = _build_dashboard(config.data_dir, today)
+        dashboard = _build_dashboard(config, today)
         return Response(
             content=json.dumps(dashboard.to_json(), ensure_ascii=False, indent=2),
             media_type="application/json",
@@ -113,7 +116,7 @@ def create_app(config: ServerConfig) -> FastAPI:
         authorization: Optional[str] = Header(default=None),
     ) -> Response:
         require_token(authorization, config.read_token)
-        dashboard = _build_dashboard(config.data_dir, today)
+        dashboard = _build_dashboard(config, today)
         svg = render_dashboard(dashboard)
         return Response(content=svg, media_type="image/svg+xml")
 
@@ -148,23 +151,42 @@ def _load_snapshots(data_dir: Path) -> list[HostSnapshot]:
     return snapshots
 
 
-def _build_dashboard(data_dir: Path, today_str: Optional[str]):
-    snapshots = _load_snapshots(data_dir)
-    today = date.fromisoformat(today_str) if today_str else date.today()
-    return aggregate(snapshots, today=today)
+def _build_dashboard(config: ServerConfig, today_str: Optional[str]):
+    snapshots = _load_snapshots(config.data_dir)
+    today = date.fromisoformat(today_str) if today_str else _logical_today(config)
+    return aggregate(
+        snapshots,
+        today=today,
+        timezone_name=str(config.timezone),
+        day_start=config.day_start,
+    )
+
+
+def _logical_today(config: ServerConfig) -> date:
+    current = datetime.now(config.timezone)
+    boundary = datetime.combine(current.date(), config.day_start, tzinfo=config.timezone)
+    if current < boundary:
+        return current.date() - timedelta(days=1)
+    return current.date()
 
 
 def run(
     data_dir: Path,
     host_token: str,
     read_token: str,
+    timezone: ZoneInfo = ZoneInfo("Asia/Shanghai"),
+    day_start: time = time(0, 0),
     host: str = "0.0.0.0",
     port: int = 8000,
 ) -> None:
     import uvicorn
 
     config = ServerConfig(
-        data_dir=data_dir, host_token=host_token, read_token=read_token
+        data_dir=data_dir,
+        host_token=host_token,
+        read_token=read_token,
+        timezone=timezone,
+        day_start=day_start,
     )
     app = create_app(config)
     uvicorn.run(app, host=host, port=port, log_level="info")

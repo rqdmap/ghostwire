@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from importlib import import_module
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
@@ -94,6 +94,7 @@ def build_snapshot(opencode_sessions=None):
             "ghostwire.snapshot.sanitize_snapshot",
             side_effect=lambda payload: payload,
         ) as mock_sanitize,
+        patch("ghostwire.snapshot.build_daily_opencode", return_value=[]),
     ):
         snapshot = build_host_snapshot(
             client=object(),
@@ -117,6 +118,43 @@ def test_build_host_snapshot_uses_aw_collectors_with_day_window() -> None:
     assert afk_bucket == "aw-watcher-afk_work-mac-2024"
     assert start == datetime(2026, 4, 21, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
     assert end == datetime(2026, 4, 22, 0, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+
+def test_build_host_snapshot_respects_configured_day_start() -> None:
+    config = Config(
+        timezone=ZoneInfo("Asia/Shanghai"),
+        day_start=time(6, 0),
+        categorize_terminal=["WezTerm", "Neovim"],
+        categorize_browser=["Safari"],
+    )
+    host_meta = HostMeta(id="work-mac-2024", label="工作机", platform="macOS")
+    mock_buckets = {
+        "work-mac-2024": {
+            "window_bucket": "aw-watcher-window_work-mac-2024",
+            "afk_bucket": "aw-watcher-afk_work-mac-2024",
+        }
+    }
+
+    with (
+        patch("ghostwire.snapshot.discover_host_buckets", return_value=mock_buckets),
+        patch(
+            "ghostwire.snapshot.collect_active_windows",
+            return_value=(make_events(), 3000, 0),
+        ) as mock_collect,
+        patch("ghostwire.snapshot.sanitize_snapshot", side_effect=lambda payload: payload),
+        patch("ghostwire.snapshot.build_daily_opencode", return_value=[]),
+    ):
+        build_host_snapshot(
+            client=object(),
+            host_meta=host_meta,
+            config=config,
+            target_date=date(2026, 4, 21),
+            opencode_sessions=[],
+        )
+
+    _, _, _, start, end = mock_collect.call_args.args
+    assert start == datetime(2026, 4, 21, 6, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
+    assert end == datetime(2026, 4, 22, 6, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 def test_rhythm_has_24_elements_and_buckets_seconds_by_hour() -> None:

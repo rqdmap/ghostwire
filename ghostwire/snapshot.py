@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime
 from typing import Any
 
 from .aw_client import AWClient, discover_host_buckets
@@ -21,8 +21,7 @@ def build_host_snapshot(
     opencode_sessions: list[dict[str, Any]] | None = None,
 ) -> HostSnapshot:
     tz = config.timezone
-    start = datetime.combine(target_date, time.min, tzinfo=tz)
-    end = start + timedelta(days=1)
+    start, end = config.reporting_window(target_date)
 
     buckets = discover_host_buckets(client)
     window_bucket, afk_bucket = _resolve_buckets(buckets, host_meta.id)
@@ -52,7 +51,11 @@ def build_host_snapshot(
     ]
 
     if opencode_sessions is None:
-        opencode_sessions = build_daily_opencode(target_date)
+        opencode_sessions = build_daily_opencode(
+            target_date,
+            window_start=start,
+            window_end=end,
+        )
 
     snapshot = HostSnapshot(
         host=host_meta,
