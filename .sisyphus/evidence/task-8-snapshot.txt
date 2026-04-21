@@ -1,0 +1,17 @@
+Task: T8 snapshot.py 组装 HostSnapshot
+
+Command:
+python3 -m pytest tests/test_snapshot.py -v
+
+Result:
+- 7 tests collected
+- 7 tests passed
+- No real AW or OpenCode access used, all external collectors patched with unittest.mock.patch
+
+Key checks covered:
+- AW bucket discovery + day window wiring
+- 24-hour rhythm generation
+- by_category aggregation matches total_seconds
+- applications list filters non-allowlisted apps
+- sanitize_snapshot invocation
+- OpenCode aggregation + session_id hashing
