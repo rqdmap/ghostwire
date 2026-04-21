@@ -1,0 +1,2 @@
+pytest tests/test_categorize.py -v
+7 passed
