@@ -1,0 +1,28 @@
+Task T19: Create .github/workflows/render.yml
+==============================================
+
+File created: .github/workflows/render.yml
+
+YAML validation:
+  Command: python3 -c "import yaml; yaml.safe_load(open('.github/workflows/render.yml'))"
+  Result: YAML valid (no output, exit 0)
+
+Workflow summary:
+  - Trigger: workflow_dispatch + daily cron at 04:00 UTC (noon CST)
+  - Runner: ubuntu-latest (GitHub-hosted)
+  - Steps:
+    1. Checkout aw-report (this repo)
+    2. Checkout private snapshots repo (via SSH deploy key)
+    3. Checkout public profile repo (via PAT token)
+    4. Set up Python 3.11
+    5. Install aw-report package
+    6. Aggregate snapshots -> dashboard.json
+    7. Render SVG -> profile-repo/assets/dashboard.svg
+    8. Update README.md telemetry section markers
+    9. Commit and push to profile repo (--allow-empty)
+
+Required secrets (no hardcoded credentials):
+  - SNAPSHOTS_REPO: repository name (e.g., rqdmap/snapshots-private)
+  - SNAPSHOTS_DEPLOY_KEY: private SSH key with READ access to snapshots repo
+  - PROFILE_REPO: repository name (e.g., rqdmap/rqdmap)
+  - PROFILE_REPO_TOKEN: GitHub PAT with repo write access to profile repo
