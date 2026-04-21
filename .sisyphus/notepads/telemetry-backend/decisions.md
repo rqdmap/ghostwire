@@ -9,3 +9,12 @@ Appended decisions for T14:
 Appended decisions for T15:
 - Chose `string.Template`-style `${VAR}` placeholders for the SVG so rendering can stay dependency-light.
 - Kept the template as a plain `.tmpl` SVG document to preserve xmllint compatibility.
+
+Appended decisions for T16:
+- Implemented SVG rendering in `aw_report/render_svg.py` by loading the template from disk and binding an explicit placeholder map from `Dashboard` data.
+- Added focused renderer tests around XML validity, placeholder resolution, fixture-backed content, and token polyline serialization.
+
+- 2026-04-21 audit verdict basis: keep the audit strict to the supplied checklist, including legacy CLI compatibility and literal grep cleanliness checks
+
+- Added lightweight compatibility shims for the removed report pipeline instead of changing the existing snapshot, aggregate, and render commands.
+- Kept the new `snapshot`, `aggregate`, `render`, and `version` commands untouched, then appended the restored legacy commands at the bottom of `cli.py`.
