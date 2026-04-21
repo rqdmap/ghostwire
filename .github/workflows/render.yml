@@ -1,0 +1,89 @@
+name: Render Dashboard
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 4 * * *'   # Run daily at noon CST (after collect has run)
+
+jobs:
+  render:
+    name: Aggregate snapshots and publish dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout aw-report (this repo)
+        uses: actions/checkout@v4
+        with:
+          path: aw-report
+
+      - name: Checkout private snapshots repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.SNAPSHOTS_REPO }}
+          ssh-key: ${{ secrets.SNAPSHOTS_DEPLOY_KEY }}
+          path: snapshots-private
+
+      - name: Checkout public profile repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.PROFILE_REPO }}
+          token: ${{ secrets.PROFILE_REPO_TOKEN }}
+          path: profile-repo
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install aw-report
+        run: pip install -e ./aw-report --quiet
+
+      - name: Aggregate snapshots
+        run: |
+          aw-report aggregate \
+            --in ./snapshots-private \
+            --out ./dashboard.json
+
+      - name: Render SVG
+        run: |
+          aw-report render \
+            --in ./dashboard.json \
+            --out ./profile-repo/assets/dashboard.svg
+
+      - name: Update README markers
+        run: |
+          python3 - << 'EOF'
+          import json, pathlib
+
+          data = json.loads(pathlib.Path("dashboard.json").read_text())
+          cards = data["cards"]
+          active_h = cards["active_30d_seconds"] / 3600
+          tokens_m = cards["tokens_7d"] / 1_000_000
+
+          summary = (
+              f"Last 30 days: {active_h:.1f}h active · "
+              f"{tokens_m:.1f}M tokens (7d) · "
+              f"Updated: {data['header']['synced_at'][:10]}"
+          )
+
+          readme = pathlib.Path("profile-repo/README.md")
+          if readme.exists():
+              content = readme.read_text()
+              if "<!--START_SECTION:telemetry-->" in content:
+                  import re
+                  content = re.sub(
+                      r"<!--START_SECTION:telemetry-->.*?<!--END_SECTION:telemetry-->",
+                      f"<!--START_SECTION:telemetry-->\n{summary}\n<!--END_SECTION:telemetry-->",
+                      content,
+                      flags=re.DOTALL,
+                  )
+                  readme.write_text(content)
+          EOF
+
+      - name: Commit and push to profile repo
+        run: |
+          cd profile-repo
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          git add assets/dashboard.svg README.md
+          git commit -m "chore(dashboard): auto-update $(date +%Y-%m-%d)" --allow-empty
+          git push
