@@ -50,13 +50,15 @@ def build_connection(rows: list[tuple[str, int, dict]]) -> sqlite3.Connection:
     )
 
     for index, (session_id, created_ms, payload) in enumerate(rows, start=1):
+        completed_ms = (payload.get("time") or {}).get("completed")
+        time_updated = int(completed_ms) if completed_ms is not None else int(created_ms)
         connection.execute(
             "INSERT INTO message (id, session_id, time_created, time_updated, data) VALUES (?, ?, ?, ?, ?)",
             (
                 f"msg-{index}",
                 session_id,
                 created_ms,
-                created_ms,
+                time_updated,
                 json.dumps(payload),
             ),
         )
@@ -82,14 +84,17 @@ def test_read_sessions_hashes_session_ids_and_keeps_metadata_only(
 ) -> None:
     target_day = date(2026, 4, 21)
     raw_session_id = "ses-raw-123"
+    user_created = to_ms("2026-04-21T09:00:00+00:00")
+    asst_created = to_ms("2026-04-21T09:03:00+00:00")
+    asst_completed = to_ms("2026-04-21T09:03:45+00:00")
     connection = build_connection(
         [
             (
                 raw_session_id,
-                to_ms("2026-04-21T09:00:00+00:00"),
+                user_created,
                 {
                     "role": "user",
-                    "time": {"created": to_ms("2026-04-21T09:00:00+00:00")},
+                    "time": {"created": user_created},
                     "model": {
                         "providerID": "github-copilot",
                         "modelID": "claude-sonnet-4.6",
@@ -99,10 +104,10 @@ def test_read_sessions_hashes_session_ids_and_keeps_metadata_only(
             ),
             (
                 raw_session_id,
-                to_ms("2026-04-21T09:03:00+00:00"),
+                asst_created,
                 {
                     "role": "assistant",
-                    "time": {"created": to_ms("2026-04-21T09:03:00+00:00")},
+                    "time": {"created": asst_created, "completed": asst_completed},
                     "providerID": "github-copilot",
                     "modelID": "claude-sonnet-4.6",
                     "metadata": {"usage": {"inputTokens": 120, "outputTokens": 30}},
@@ -134,14 +139,16 @@ def test_read_sessions_hashes_session_ids_and_keeps_metadata_only(
                 {
                     "session_id": hash_session_id(raw_session_id),
                     "role": "user",
-                    "time_created_ms": to_ms("2026-04-21T09:00:00+00:00"),
+                    "time_created_ms": user_created,
+                    "time_ended_ms": user_created,
                     "model_id": "claude-sonnet-4.6",
                     "provider_id": "github-copilot",
                 },
                 {
                     "session_id": hash_session_id(raw_session_id),
                     "role": "assistant",
-                    "time_created_ms": to_ms("2026-04-21T09:03:00+00:00"),
+                    "time_created_ms": asst_created,
+                    "time_ended_ms": asst_completed,
                     "model_id": "claude-sonnet-4.6",
                     "provider_id": "github-copilot",
                     "usage": {"inputTokens": 120, "outputTokens": 30},
@@ -204,6 +211,7 @@ def test_read_sessions_supports_custom_reporting_window(
                     "session_id": hash_session_id(raw_session_id),
                     "role": "user",
                     "time_created_ms": to_ms("2026-04-22T00:30:00+08:00"),
+                    "time_ended_ms": to_ms("2026-04-22T00:30:00+08:00"),
                     "model_id": None,
                     "provider_id": None,
                 }
@@ -217,11 +225,15 @@ def test_extract_bursts_keeps_boundary_gap_in_same_burst() -> None:
     messages = [
         {
             "session_id": session_id,
+            "role": "assistant",
             "time_created_ms": to_ms("2026-04-21T09:00:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:00:30+00:00"),
         },
         {
             "session_id": session_id,
+            "role": "assistant",
             "time_created_ms": to_ms("2026-04-21T09:10:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:10:30+00:00"),
         },
     ]
 
@@ -230,7 +242,7 @@ def test_extract_bursts_keeps_boundary_gap_in_same_burst() -> None:
     assert bursts == [
         Burst(
             start=datetime(2026, 4, 21, 9, 0, tzinfo=timezone.utc),
-            end=datetime(2026, 4, 21, 9, 10, tzinfo=timezone.utc),
+            end=datetime(2026, 4, 21, 9, 10, 30, tzinfo=timezone.utc),
             session_id=session_id,
         )
     ]
@@ -241,11 +253,15 @@ def test_extract_bursts_splits_when_gap_exceeds_boundary() -> None:
     messages = [
         {
             "session_id": session_id,
+            "role": "assistant",
             "time_created_ms": to_ms("2026-04-21T09:00:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:00:30+00:00"),
         },
         {
             "session_id": session_id,
+            "role": "assistant",
             "time_created_ms": to_ms("2026-04-21T09:11:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:11:30+00:00"),
         },
     ]
 
@@ -254,12 +270,12 @@ def test_extract_bursts_splits_when_gap_exceeds_boundary() -> None:
     assert bursts == [
         Burst(
             start=datetime(2026, 4, 21, 9, 0, tzinfo=timezone.utc),
-            end=datetime(2026, 4, 21, 9, 0, tzinfo=timezone.utc),
+            end=datetime(2026, 4, 21, 9, 0, 30, tzinfo=timezone.utc),
             session_id=session_id,
         ),
         Burst(
             start=datetime(2026, 4, 21, 9, 11, tzinfo=timezone.utc),
-            end=datetime(2026, 4, 21, 9, 11, tzinfo=timezone.utc),
+            end=datetime(2026, 4, 21, 9, 11, 30, tzinfo=timezone.utc),
             session_id=session_id,
         ),
     ]
@@ -271,19 +287,27 @@ def test_extract_bursts_groups_each_session_independently() -> None:
     messages = [
         {
             "session_id": first_session,
+            "role": "assistant",
             "time_created_ms": to_ms("2026-04-21T09:00:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:01:00+00:00"),
         },
         {
             "session_id": second_session,
+            "role": "assistant",
             "time_created_ms": to_ms("2026-04-21T09:02:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:03:00+00:00"),
         },
         {
             "session_id": first_session,
+            "role": "assistant",
             "time_created_ms": to_ms("2026-04-21T09:05:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:06:00+00:00"),
         },
         {
             "session_id": second_session,
+            "role": "assistant",
             "time_created_ms": to_ms("2026-04-21T09:20:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:21:00+00:00"),
         },
     ]
 
@@ -292,20 +316,72 @@ def test_extract_bursts_groups_each_session_independently() -> None:
     assert bursts == [
         Burst(
             start=datetime(2026, 4, 21, 9, 0, tzinfo=timezone.utc),
-            end=datetime(2026, 4, 21, 9, 5, tzinfo=timezone.utc),
+            end=datetime(2026, 4, 21, 9, 6, tzinfo=timezone.utc),
             session_id=first_session,
         ),
         Burst(
             start=datetime(2026, 4, 21, 9, 2, tzinfo=timezone.utc),
-            end=datetime(2026, 4, 21, 9, 2, tzinfo=timezone.utc),
+            end=datetime(2026, 4, 21, 9, 3, tzinfo=timezone.utc),
             session_id=second_session,
         ),
         Burst(
             start=datetime(2026, 4, 21, 9, 20, tzinfo=timezone.utc),
-            end=datetime(2026, 4, 21, 9, 20, tzinfo=timezone.utc),
+            end=datetime(2026, 4, 21, 9, 21, tzinfo=timezone.utc),
             session_id=second_session,
         ),
     ]
+
+
+def test_extract_bursts_ignores_user_messages_without_completed() -> None:
+    session_id = hash_session_id("ses-user-only")
+    messages = [
+        {
+            "session_id": session_id,
+            "role": "user",
+            "time_created_ms": to_ms("2026-04-21T09:00:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:00:00+00:00"),
+        },
+    ]
+
+    assert extract_bursts(messages, gap_minutes=10) == []
+
+
+def test_extract_bursts_drops_assistant_without_observed_end() -> None:
+    session_id = hash_session_id("ses-incomplete")
+    messages = [
+        {
+            "session_id": session_id,
+            "role": "assistant",
+            "time_created_ms": to_ms("2026-04-21T09:00:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:00:00+00:00"),
+        },
+    ]
+
+    assert extract_bursts(messages, gap_minutes=10) == []
+
+
+def test_extract_bursts_respects_configurable_gap_minutes() -> None:
+    session_id = hash_session_id("ses-gap")
+    messages = [
+        {
+            "session_id": session_id,
+            "role": "assistant",
+            "time_created_ms": to_ms("2026-04-21T09:00:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:00:30+00:00"),
+        },
+        {
+            "session_id": session_id,
+            "role": "assistant",
+            "time_created_ms": to_ms("2026-04-21T09:04:00+00:00"),
+            "time_ended_ms": to_ms("2026-04-21T09:04:30+00:00"),
+        },
+    ]
+
+    short_gap = extract_bursts(messages, gap_minutes=2)
+    long_gap = extract_bursts(messages, gap_minutes=10)
+
+    assert len(short_gap) == 2
+    assert len(long_gap) == 1
 
 
 def test_extract_token_usage_supports_multiple_usage_shapes() -> None:
@@ -354,7 +430,10 @@ def test_build_daily_opencode_preserves_exact_per_session_model_breakdown(
                 to_ms("2026-04-21T09:00:00+00:00"),
                 {
                     "role": "assistant",
-                    "time": {"created": to_ms("2026-04-21T09:00:00+00:00")},
+                    "time": {
+                        "created": to_ms("2026-04-21T09:00:00+00:00"),
+                        "completed": to_ms("2026-04-21T09:00:30+00:00"),
+                    },
                     "modelID": "claude-sonnet-4.6",
                     "metadata": {"usage": {"inputTokens": 100, "outputTokens": 20}},
                 },
@@ -364,7 +443,10 @@ def test_build_daily_opencode_preserves_exact_per_session_model_breakdown(
                 to_ms("2026-04-21T09:05:00+00:00"),
                 {
                     "role": "assistant",
-                    "time": {"created": to_ms("2026-04-21T09:05:00+00:00")},
+                    "time": {
+                        "created": to_ms("2026-04-21T09:05:00+00:00"),
+                        "completed": to_ms("2026-04-21T09:05:30+00:00"),
+                    },
                     "modelID": "gpt-5.4",
                     "metadata": {"usage": {"inputTokens": 50, "outputTokens": 10}},
                 },
@@ -389,7 +471,7 @@ def test_build_daily_opencode_preserves_exact_per_session_model_breakdown(
             "bursts": [
                 {
                     "start": "2026-04-21T09:00:00+00:00",
-                    "end": "2026-04-21T09:05:00+00:00",
+                    "end": "2026-04-21T09:05:30+00:00",
                 }
             ],
         }
@@ -402,3 +484,193 @@ def test_extract_token_usage_returns_zero_without_usage() -> None:
     )
 
     assert usage == {"total": 0, "by_model": {}}
+
+
+def _build_connection_with_parts(
+    rows: list[tuple[str, int, dict, list[tuple[int, int]]]],
+) -> sqlite3.Connection:
+    connection = sqlite3.connect(":memory:")
+    connection.execute(
+        """
+        CREATE TABLE message (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            time_created INTEGER NOT NULL,
+            time_updated INTEGER NOT NULL,
+            data TEXT NOT NULL
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE part (
+            id TEXT PRIMARY KEY,
+            message_id TEXT NOT NULL,
+            time_created INTEGER NOT NULL,
+            time_updated INTEGER NOT NULL
+        )
+        """
+    )
+    for index, (session_id, created_ms, payload, parts) in enumerate(rows, start=1):
+        message_id = f"msg-{index}"
+        completed_ms = (payload.get("time") or {}).get("completed")
+        time_updated = int(completed_ms) if completed_ms is not None else int(created_ms)
+        connection.execute(
+            "INSERT INTO message VALUES (?, ?, ?, ?, ?)",
+            (
+                message_id,
+                session_id,
+                created_ms,
+                time_updated,
+                json.dumps(payload),
+            ),
+        )
+        for part_index, (part_created, part_updated) in enumerate(parts, start=1):
+            connection.execute(
+                "INSERT INTO part VALUES (?, ?, ?, ?)",
+                (
+                    f"prt-{index}-{part_index}",
+                    message_id,
+                    part_created,
+                    part_updated,
+                ),
+            )
+    connection.commit()
+    return connection
+
+
+def test_read_sessions_falls_back_to_part_time_when_completed_missing(
+    monkeypatch, tmp_path
+) -> None:
+    raw_session_id = "ses-fallback-part"
+    created = to_ms("2026-04-21T09:00:00+00:00")
+    last_part = to_ms("2026-04-21T09:01:30+00:00")
+    connection = _build_connection_with_parts(
+        [
+            (
+                raw_session_id,
+                created,
+                {
+                    "role": "assistant",
+                    "time": {"created": created},
+                    "modelID": "claude-sonnet-4.6",
+                },
+                [
+                    (created + 1_000, created + 1_000),
+                    (created + 30_000, last_part),
+                ],
+            ),
+        ]
+    )
+    db_path = tmp_path / "mock.db"
+    db_path.touch()
+    monkeypatch.setattr(opencode.sqlite3, "connect", lambda _: connection)
+
+    sessions = read_sessions(date(2026, 4, 21), db_path=db_path)
+
+    assert sessions[0]["messages"][0]["time_ended_ms"] == last_part
+
+
+def test_read_sessions_falls_back_to_message_time_updated_when_no_parts(
+    monkeypatch, tmp_path
+) -> None:
+    raw_session_id = "ses-fallback-updated"
+    created = to_ms("2026-04-21T09:00:00+00:00")
+    updated = to_ms("2026-04-21T09:00:45+00:00")
+    connection = sqlite3.connect(":memory:")
+    connection.execute(
+        """
+        CREATE TABLE message (
+            id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            time_created INTEGER NOT NULL,
+            time_updated INTEGER NOT NULL,
+            data TEXT NOT NULL
+        )
+        """
+    )
+    payload = {
+        "role": "assistant",
+        "time": {"created": created},
+        "modelID": "claude-sonnet-4.6",
+    }
+    connection.execute(
+        "INSERT INTO message VALUES (?, ?, ?, ?, ?)",
+        ("m1", raw_session_id, created, updated, json.dumps(payload)),
+    )
+    connection.commit()
+
+    db_path = tmp_path / "mock.db"
+    db_path.touch()
+    monkeypatch.setattr(opencode.sqlite3, "connect", lambda _: connection)
+
+    sessions = read_sessions(date(2026, 4, 21), db_path=db_path)
+
+    assert sessions[0]["messages"][0]["time_ended_ms"] == updated
+
+
+def test_build_daily_opencode_threads_burst_gap_minutes(monkeypatch, tmp_path) -> None:
+    raw_session_id = "ses-gap-config"
+    base = to_ms("2026-04-21T09:00:00+00:00")
+    payload_a = {
+        "role": "assistant",
+        "time": {"created": base, "completed": base + 30_000},
+        "modelID": "gpt-5.4",
+        "metadata": {"usage": {"inputTokens": 10, "outputTokens": 5}},
+    }
+    later = base + 4 * 60 * 1000
+    payload_b = {
+        "role": "assistant",
+        "time": {"created": later, "completed": later + 30_000},
+        "modelID": "gpt-5.4",
+        "metadata": {"usage": {"inputTokens": 10, "outputTokens": 5}},
+    }
+
+    rows = [
+        (raw_session_id, base, payload_a),
+        (raw_session_id, later, payload_b),
+    ]
+    real_connect = opencode.sqlite3.connect
+    db_path = tmp_path / "mock.db"
+    db_path.touch()
+
+    def make_connection(_path):
+        connection = real_connect(":memory:")
+        connection.execute(
+            """
+            CREATE TABLE message (
+                id TEXT PRIMARY KEY,
+                session_id TEXT NOT NULL,
+                time_created INTEGER NOT NULL,
+                time_updated INTEGER NOT NULL,
+                data TEXT NOT NULL
+            )
+            """
+        )
+        for index, (session_id, created_ms, payload) in enumerate(rows, start=1):
+            completed_ms = (payload.get("time") or {}).get("completed")
+            time_updated = int(completed_ms) if completed_ms is not None else int(created_ms)
+            connection.execute(
+                "INSERT INTO message VALUES (?, ?, ?, ?, ?)",
+                (
+                    f"msg-{index}",
+                    session_id,
+                    created_ms,
+                    time_updated,
+                    json.dumps(payload),
+                ),
+            )
+        connection.commit()
+        return connection
+
+    monkeypatch.setattr(opencode.sqlite3, "connect", make_connection)
+
+    short = build_daily_opencode(
+        date(2026, 4, 21), db_path=db_path, burst_gap_minutes=2
+    )
+    long = build_daily_opencode(
+        date(2026, 4, 21), db_path=db_path, burst_gap_minutes=10
+    )
+
+    assert len(short[0]["bursts"]) == 2
+    assert len(long[0]["bursts"]) == 1

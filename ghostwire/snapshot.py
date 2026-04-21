@@ -55,6 +55,7 @@ def build_host_snapshot(
             target_date,
             window_start=start,
             window_end=end,
+            burst_gap_minutes=config.opencode_burst_gap_minutes,
         )
 
     snapshot = HostSnapshot(

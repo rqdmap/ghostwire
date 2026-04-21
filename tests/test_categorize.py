@@ -132,3 +132,52 @@ def test_reporting_date_rolls_back_before_day_start() -> None:
         config.reporting_date(datetime(2026, 4, 22, 6, 0, tzinfo=ZoneInfo("Asia/Shanghai")))
         == date(2026, 4, 22)
     )
+
+
+def test_load_config_parses_opencode_burst_gap_minutes(tmp_path) -> None:
+    path = tmp_path / "ghostwire.toml"
+    path.write_text(
+        """
+[general]
+timezone = "Asia/Shanghai"
+
+[opencode]
+burst_gap_minutes = 5
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(path)
+
+    assert config.opencode_burst_gap_minutes == 5
+
+
+def test_load_config_defaults_burst_gap_minutes_to_ten(tmp_path) -> None:
+    path = tmp_path / "ghostwire.toml"
+    path.write_text(
+        """
+[general]
+timezone = "Asia/Shanghai"
+""".strip(),
+        encoding="utf-8",
+    )
+
+    config = load_config(path)
+
+    assert config.opencode_burst_gap_minutes == 10
+
+
+def test_load_config_rejects_negative_burst_gap_minutes(tmp_path) -> None:
+    path = tmp_path / "ghostwire.toml"
+    path.write_text(
+        """
+[opencode]
+burst_gap_minutes = -1
+""".strip(),
+        encoding="utf-8",
+    )
+
+    import pytest
+
+    with pytest.raises(ValueError):
+        load_config(path)

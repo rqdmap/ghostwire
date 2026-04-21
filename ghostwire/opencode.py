@@ -49,6 +49,7 @@ class _RawMessage:
     raw_session_id: str
     session_created_ms: int
     time_created_ms: int
+    time_ended_ms: int
     role: Optional[str]
     model_id: Optional[str]
     provider_id: Optional[str]
@@ -90,6 +91,7 @@ def read_sessions(
                 "session_id": hashed,
                 "role": msg.role,
                 "time_created_ms": msg.time_created_ms,
+                "time_ended_ms": msg.time_ended_ms,
                 "model_id": msg.model_id,
                 "provider_id": msg.provider_id,
             }
@@ -117,6 +119,8 @@ def _read_raw_messages(
 
     try:
         rows = _query_messages(connection, start_ms, end_ms)
+        message_ids = [row["message_id"] for row in rows if row["message_id"]]
+        part_extents = _query_part_extents(connection, message_ids)
         for row in rows:
             payload = _load_payload(row["data"])
             if payload is None:
@@ -130,11 +134,19 @@ def _read_raw_messages(
             if filter_date is not None and _date_from_ms(created_ms) != filter_date:
                 continue
 
+            ended_ms = _resolve_message_end_ms(
+                payload=payload,
+                created_ms=created_ms,
+                row_time_updated=_coerce_int(row["time_updated"]),
+                part_extent=part_extents.get(row["message_id"]),
+            )
+
             raw.append(
                 _RawMessage(
                     raw_session_id=str(row["session_id"]),
                     session_created_ms=int(row["session_created"] or created_ms),
                     time_created_ms=created_ms,
+                    time_ended_ms=ended_ms,
                     role=payload.get("role"),
                     model_id=_extract_model_id(payload),
                     provider_id=_extract_provider_id(payload),
@@ -150,22 +162,35 @@ def _read_raw_messages(
 
 
 def _query_messages(connection: sqlite3.Connection, start_ms: int, end_ms: int):
-    """Return message rows with session_created. Falls back when no session table."""
-    join_query = """
+    """Return message rows with session_created. Falls back when no session table.
+
+    Each row exposes ``message_id``, ``session_id``, ``session_created``,
+    ``time_created``, ``time_updated`` and ``data``.  Older mock databases that
+    lack ``message.time_updated`` get ``time_created`` reused as a stand-in.
+    """
+    has_time_updated = _column_exists(connection, "message", "time_updated")
+    updated_expr = "m.time_updated" if has_time_updated else "m.time_created"
+    fallback_updated = "time_updated" if has_time_updated else "time_created"
+
+    join_query = f"""
         SELECT
+            m.id                  AS message_id,
             m.session_id          AS session_id,
             COALESCE(s.time_created, m.time_created) AS session_created,
             m.time_created        AS time_created,
+            {updated_expr}        AS time_updated,
             m.data                AS data
         FROM message m
         LEFT JOIN session s ON s.id = m.session_id
         WHERE m.time_created >= ? AND m.time_created < ?
     """
-    fallback_query = """
+    fallback_query = f"""
         SELECT
+            id                   AS message_id,
             session_id           AS session_id,
             time_created         AS session_created,
             time_created         AS time_created,
+            {fallback_updated}   AS time_updated,
             data                 AS data
         FROM message
         WHERE time_created >= ? AND time_created < ?
@@ -174,6 +199,77 @@ def _query_messages(connection: sqlite3.Connection, start_ms: int, end_ms: int):
         return list(connection.execute(join_query, (start_ms, end_ms)))
     except sqlite3.OperationalError:
         return list(connection.execute(fallback_query, (start_ms, end_ms)))
+
+
+def _column_exists(
+    connection: sqlite3.Connection, table: str, column: str
+) -> bool:
+    try:
+        rows = connection.execute(f"PRAGMA table_info({table})").fetchall()
+    except sqlite3.OperationalError:
+        return False
+    for row in rows:
+        if row[1] == column:
+            return True
+    return False
+
+
+def _query_part_extents(
+    connection: sqlite3.Connection, message_ids: list[str]
+) -> dict[str, int]:
+    """Return ``{message_id: max(part time)}`` when a ``part`` table exists.
+
+    Falls back to ``{}`` when the table is absent (legacy DBs / tests).
+    """
+    if not message_ids:
+        return {}
+    try:
+        placeholders = ",".join("?" for _ in message_ids)
+        query = (
+            "SELECT message_id, MAX(time_updated) AS u, MAX(time_created) AS c "
+            "FROM part WHERE message_id IN ("
+            + placeholders
+            + ") GROUP BY message_id"
+        )
+        rows = connection.execute(query, message_ids).fetchall()
+    except sqlite3.OperationalError:
+        return {}
+    extents: dict[str, int] = {}
+    for row in rows:
+        u = _coerce_int(row["u"])
+        c = _coerce_int(row["c"])
+        candidates = [v for v in (u, c) if v is not None]
+        if candidates:
+            extents[row["message_id"]] = max(candidates)
+    return extents
+
+
+def _resolve_message_end_ms(
+    *,
+    payload: dict[str, Any],
+    created_ms: int,
+    row_time_updated: Optional[int],
+    part_extent: Optional[int],
+) -> int:
+    """Pick the best available "end" timestamp for a message.
+
+    Order of preference:
+
+    1. ``data.time.completed`` -- official semantic completion (assistant only)
+    2. ``MAX(part.time_updated, part.time_created)`` -- inferred from observed parts
+    3. ``message.time_updated`` -- storage-layer last-write time
+
+    All candidates are clamped to ``>= created_ms`` so we never invent intervals
+    that end before they started.
+    """
+    completed = _coerce_int(payload.get("time", {}).get("completed"))
+    if completed is not None and completed >= created_ms:
+        return completed
+    if part_extent is not None and part_extent >= created_ms:
+        return part_extent
+    if row_time_updated is not None and row_time_updated >= created_ms:
+        return row_time_updated
+    return created_ms
 
 
 def _dedupe_fork_messages(messages: list[_RawMessage]) -> list[_RawMessage]:
@@ -210,29 +306,39 @@ def _dedupe_fork_messages(messages: list[_RawMessage]) -> list[_RawMessage]:
 def extract_bursts(
     messages: list[dict[str, Any]], gap_minutes: int = DEFAULT_GAP_MINUTES
 ) -> list[Burst]:
-    """Group consecutive same-session messages into bursts."""
-    grouped: dict[str, list[int]] = defaultdict(list)
+    """Group assistant message intervals into per-session bursts.
+
+    Only ``assistant`` messages contribute, because they are the only role with
+    a meaningful ``[time_created_ms, time_ended_ms]`` envelope (covering model
+    generation + reasoning + tool execution).  Each interval is clamped so that
+    ``end > start``; zero-length / inverted intervals are dropped rather than
+    backfilled with synthetic grace periods.
+    """
+    intervals: dict[str, list[tuple[int, int]]] = defaultdict(list)
     for message in messages:
-        ts = _coerce_int(message.get("time_created_ms"))
-        if ts is None:
+        if message.get("role") != "assistant":
             continue
-        grouped[str(message.get("session_id", ""))].append(ts)
+        start_ms = _coerce_int(message.get("time_created_ms"))
+        if start_ms is None:
+            continue
+        end_ms = _coerce_int(message.get("time_ended_ms"))
+        if end_ms is None or end_ms <= start_ms:
+            continue
+        intervals[str(message.get("session_id", ""))].append((start_ms, end_ms))
 
     gap_ms = gap_minutes * 60 * 1000
     bursts: list[Burst] = []
 
-    for session_id in sorted(grouped):
-        timestamps = sorted(grouped[session_id])
-        if not timestamps:
-            continue
-
-        burst_start = burst_end = timestamps[0]
-        for ts in timestamps[1:]:
-            if ts - burst_end <= gap_ms:
-                burst_end = ts
+    for session_id in sorted(intervals):
+        ordered = sorted(intervals[session_id])
+        burst_start, burst_end = ordered[0]
+        for start_ms, end_ms in ordered[1:]:
+            if start_ms - burst_end <= gap_ms:
+                if end_ms > burst_end:
+                    burst_end = end_ms
                 continue
             bursts.append(_make_burst(burst_start, burst_end, session_id))
-            burst_start = burst_end = ts
+            burst_start, burst_end = start_ms, end_ms
         bursts.append(_make_burst(burst_start, burst_end, session_id))
 
     bursts.sort(key=lambda b: (b.start, b.end, b.session_id))
@@ -274,6 +380,7 @@ def build_daily_opencode(
     *,
     window_start: Optional[datetime] = None,
     window_end: Optional[datetime] = None,
+    burst_gap_minutes: int = DEFAULT_GAP_MINUTES,
 ) -> list[dict[str, Any]]:
     """Return the OpenCode payload shape expected by ``build_host_snapshot``.
 
@@ -297,7 +404,7 @@ def build_daily_opencode(
     for session in sessions:
         messages = session["messages"]
         usage = extract_token_usage(messages)
-        bursts = extract_bursts(messages)
+        bursts = extract_bursts(messages, gap_minutes=burst_gap_minutes)
         dominant_model: Optional[str] = None
         if usage["by_model"]:
             dominant_model = max(usage["by_model"], key=usage["by_model"].get)

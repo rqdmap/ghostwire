@@ -33,6 +33,7 @@ class Config:
     hosts: list[str] = field(default_factory=lambda: ["auto"])
     categorize_terminal: list[str] = field(default_factory=list)
     categorize_browser: list[str] = field(default_factory=list)
+    opencode_burst_gap_minutes: int = 10
 
     def reporting_window(self, target_date: date) -> tuple[datetime, datetime]:
         start = datetime.combine(target_date, self.day_start, tzinfo=self.timezone)
@@ -69,6 +70,7 @@ def _parse(path: Path) -> Config:
     categorize = raw.get("categorize", {})
     terminal = categorize.get("terminal", {})
     browser = categorize.get("browser", {})
+    opencode = raw.get("opencode", {})
 
     return Config(
         timezone=ZoneInfo(general.get("timezone", "Asia/Shanghai")),
@@ -78,7 +80,31 @@ def _parse(path: Path) -> Config:
         hosts=aw.get("hosts", ["auto"]),
         categorize_terminal=terminal.get("allow", []),
         categorize_browser=browser.get("allow", []),
+        opencode_burst_gap_minutes=_parse_burst_gap_minutes(
+            opencode.get("burst_gap_minutes", 10)
+        ),
     )
+
+
+def _parse_burst_gap_minutes(value: object) -> int:
+    if isinstance(value, bool):
+        raise ValueError(f"invalid opencode.burst_gap_minutes: {value!r}")
+    if isinstance(value, int):
+        parsed = value
+    elif isinstance(value, float):
+        parsed = int(value)
+    elif isinstance(value, str):
+        try:
+            parsed = int(value)
+        except ValueError as exc:
+            raise ValueError(
+                f"invalid opencode.burst_gap_minutes: {value!r}"
+            ) from exc
+    else:
+        raise ValueError(f"invalid opencode.burst_gap_minutes: {value!r}")
+    if parsed < 0:
+        raise ValueError("opencode.burst_gap_minutes must be >= 0")
+    return parsed
 
 
 def _parse_day_start(value: object) -> time:

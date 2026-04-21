@@ -73,6 +73,9 @@ base_url = "http://127.0.0.1:5600"
 timeout_seconds = 30
 hosts = ["auto"]
 
+[opencode]
+burst_gap_minutes = 10
+
 [upload]
 server_url = "https://telemetry.example.com"
 
