@@ -1,0 +1,5 @@
+Verified `aw-report snapshot day` wiring in mock mode.
+
+- `python3 -m pytest tests/test_cli_snapshot.py -v` → 3 passed
+- `aw-report snapshot day --help` → shows `--host`, `--date`, `--out`, `--skip-opencode`
+- CLI test coverage includes valid JSON output and missing-host failure path

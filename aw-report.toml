@@ -25,3 +25,11 @@ allow = ["Alacritty", "iTerm2", "kitty", "Neovim", "Code", "WezTerm", "Terminal"
 
 [categorize.browser]
 allow = ["Google Chrome", "Chromium", "Firefox", "Safari", "Arc", "Brave Browser"]
+
+[host_meta.work-mac]
+label = "工作机"
+platform = "macOS"
+
+[host_meta.home-arch]
+label = "家里机"
+platform = "Arch Linux"
