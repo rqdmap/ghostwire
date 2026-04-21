@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 960" role="img" aria-labelledby="title desc">
+  <title id="title">ActivityWatch dashboard</title>
+  <desc id="desc">Parameterized SVG template for the dashboard report.</desc>
+  <rect width="1440" height="960" fill="#0b1020"/>
+
+  <g class="header">
+    <text x="48" y="56" fill="#e5e7eb" font-size="24" font-weight="700">Dashboard</text>
+    <text x="48" y="82" fill="#94a3b8" font-size="13">Synced ${SYNCED_DATE}</text>
+    <text x="1350" y="56" fill="#94a3b8" font-size="13" text-anchor="end">Hosts ${WS1_LABEL} / ${WS2_LABEL}</text>
+  </g>
+
+  <g class="top-cards" transform="translate(48 112)">
+    <rect x="0" y="0" width="312" height="132" rx="18" fill="#111827" stroke="#263043"/>
+    <text x="24" y="32" fill="#94a3b8" font-size="13">Active 30d</text>
+    <text x="24" y="76" fill="#f8fafc" font-size="40" font-weight="700">${ACTIVE_30D_H}h</text>
+    <text x="24" y="106" fill="#22c55e" font-size="14">▲ ${ACTIVE_DELTA_PCT}%</text>
+
+    <rect x="336" y="0" width="312" height="132" rx="18" fill="#111827" stroke="#263043"/>
+    <text x="360" y="32" fill="#94a3b8" font-size="13">Tokens 7d</text>
+    <text x="360" y="76" fill="#f8fafc" font-size="40" font-weight="700">${TOKENS_7D_M}M</text>
+    <text x="360" y="106" fill="#22c55e" font-size="14">▲ ${TOKENS_DELTA_PCT}%</text>
+
+    <rect x="672" y="0" width="720" height="132" rx="18" fill="#111827" stroke="#263043"/>
+    <text x="696" y="32" fill="#94a3b8" font-size="13">Workstations</text>
+    <text x="696" y="66" fill="#f8fafc" font-size="18" font-weight="600">${WS1_LABEL}</text>
+    <text x="696" y="90" fill="#94a3b8" font-size="13">${WS1_PLATFORM} · ${WS1_H}</text>
+    <text x="1048" y="66" fill="#f8fafc" font-size="18" font-weight="600">${WS2_LABEL}</text>
+    <text x="1048" y="90" fill="#94a3b8" font-size="13">${WS2_PLATFORM} · ${WS2_H}</text>
+    <text x="1392" y="66" fill="#f8fafc" font-size="18" font-weight="600" text-anchor="end">${SESSION_AVG}</text>
+    <text x="1392" y="90" fill="#94a3b8" font-size="13" text-anchor="end">${SESSION_PEAK} peak · ${SESSION_RETURN_M}m</text>
+  </g>
+
+  <g class="main-chart" transform="translate(48 280)">
+    <rect x="0" y="0" width="900" height="424" rx="18" fill="#111827" stroke="#263043"/>
+    <text x="24" y="34" fill="#e5e7eb" font-size="18" font-weight="600">30-day timeline</text>
+    <text x="24" y="58" fill="#94a3b8" font-size="13">Best day ${BEST_DAY_LABEL}</text>
+    <polyline fill="none" stroke="#60a5fa" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="${TOKEN_LINE_POINTS}"/>
+    <text x="24" y="392" fill="#94a3b8" font-size="12">Peak · ${RHYTHM_PEAK_H}</text>
+  </g>
+
+  <g class="right-panel" transform="translate(976 280)">
+    <rect x="0" y="0" width="416" height="424" rx="18" fill="#111827" stroke="#263043"/>
+    <text x="24" y="34" fill="#e5e7eb" font-size="18" font-weight="600">Applications</text>
+    <text x="24" y="74" fill="#f8fafc" font-size="15">terminal</text>
+    <text x="392" y="74" fill="#94a3b8" font-size="15" text-anchor="end">${APP1_H}</text>
+    <text x="24" y="110" fill="#f8fafc" font-size="15">browser</text>
+    <text x="392" y="110" fill="#94a3b8" font-size="15" text-anchor="end">${APP2_H}</text>
+    <text x="24" y="146" fill="#f8fafc" font-size="15">other</text>
+    <text x="392" y="146" fill="#94a3b8" font-size="15" text-anchor="end">${APP3_H}</text>
+
+    <text x="24" y="206" fill="#e5e7eb" font-size="18" font-weight="600">Models</text>
+    <text x="24" y="246" fill="#f8fafc" font-size="15">claude-sonnet</text>
+    <text x="392" y="246" fill="#94a3b8" font-size="15" text-anchor="end">${MODEL1_T}</text>
+    <text x="24" y="282" fill="#f8fafc" font-size="15">claude-opus</text>
+    <text x="392" y="282" fill="#94a3b8" font-size="15" text-anchor="end">${MODEL2_T}</text>
+    <text x="24" y="318" fill="#f8fafc" font-size="15">gpt-4o</text>
+    <text x="392" y="318" fill="#94a3b8" font-size="15" text-anchor="end">${MODEL3_T}</text>
+
+    <rect x="24" y="350" width="368" height="36" rx="10" fill="#0f172a"/>
+    <text x="40" y="373" fill="#94a3b8" font-size="13">Peak rhythm · ${RHYTHM_PEAK_H}</text>
+  </g>
+</svg>

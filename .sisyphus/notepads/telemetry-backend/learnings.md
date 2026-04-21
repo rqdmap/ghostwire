@@ -6,3 +6,7 @@ Appended learnings for T11-T13:
 Appended learnings for T14:
 - The top-level dashboard aggregator can stay deterministic by wiring existing pure helpers in sequence: merge by date, derive windows, compute concurrency, then materialize dataclasses.
 - Fixture-driven end-to-end tests are enough to lock the 30-day window shape, category rollups, and best-day selection without re-testing each helper in detail.
+
+Appended learnings for T15:
+- SVG templates stay simplest when they only use `string.Template` placeholders and keep all geometry, fills, and classes untouched.
+- A single data-binding table is enough to map every placeholder back to Dashboard fields for later rendering code.
