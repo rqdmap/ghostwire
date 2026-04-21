@@ -1,0 +1,15 @@
+Task 14 evidence
+
+Changed files:
+- aw_report/aggregate_dashboard.py
+- tests/test_aggregate_e2e.py
+
+Diagnostics:
+- lsp_diagnostics aw_report/aggregate_dashboard.py: clean
+- lsp_diagnostics tests/test_aggregate_e2e.py: clean
+
+Test runs:
+- python3 -m pytest tests/test_aggregate_e2e.py -v
+  Result: 3 passed
+- python3 -m pytest -v
+  Result: 98 passed
