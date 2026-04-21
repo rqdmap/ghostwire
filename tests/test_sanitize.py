@@ -2,7 +2,7 @@ import importlib
 
 import pytest
 
-sanitize = importlib.import_module("aw_report.sanitize")
+sanitize = importlib.import_module("ghostwire.sanitize")
 FORBIDDEN_KEYS = sanitize.FORBIDDEN_KEYS
 PrivacyViolation = sanitize.PrivacyViolation
 hash_session_id = sanitize.hash_session_id

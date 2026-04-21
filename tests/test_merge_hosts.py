@@ -6,9 +6,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from aw_report.aggregate_dashboard import merge_host_snapshots, merge_snapshots_by_date
-from aw_report.concurrency import Burst
-from aw_report.models import HostMeta, HostSnapshot, OpenCodeBurst, OpenCodeSession
+from ghostwire.aggregate_dashboard import merge_host_snapshots, merge_snapshots_by_date
+from ghostwire.concurrency import Burst
+from ghostwire.models import HostMeta, HostSnapshot, OpenCodeBurst, OpenCodeSession
 
 FIXTURES = pathlib.Path(__file__).parent / "fixtures"
 

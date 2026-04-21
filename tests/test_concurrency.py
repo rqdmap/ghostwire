@@ -3,8 +3,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from aw_report import concurrency
-from aw_report.concurrency import Burst, ConcurrencyMetrics, compute_concurrency
+from ghostwire import concurrency
+from ghostwire.concurrency import Burst, ConcurrencyMetrics, compute_concurrency
 
 
 def burst(start: str, end: str, session_id: str):

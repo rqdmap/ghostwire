@@ -1,4 +1,4 @@
 def test_import():
-    import aw_report
+    import ghostwire
 
-    assert aw_report.__version__ == "0.1.0"
+    assert ghostwire.__version__ == "0.2.0"

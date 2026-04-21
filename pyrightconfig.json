@@ -1,5 +1,5 @@
 {
-  "include": ["aw_report", "tests"],
+  "include": ["ghostwire", "tests"],
   "exclude": [".venv", "**/__pycache__"],
   "extraPaths": ["."]
 }

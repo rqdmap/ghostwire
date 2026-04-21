@@ -4,7 +4,7 @@ from pathlib import Path
 from string import Template
 from xml.sax.saxutils import escape
 
-from aw_report.models import Dashboard, TimelineEntry
+from .models import Dashboard, TimelineEntry
 
 TEMPLATE_PATH = Path(__file__).parent / "templates" / "dashboard.svg.tmpl"
 

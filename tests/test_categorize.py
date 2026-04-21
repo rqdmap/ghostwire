@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from importlib import import_module
 
-from aw_report.config import Config, load_config
+from ghostwire.config import Config, load_config
 
-categorize = import_module("aw_report.categorize").categorize
+categorize = import_module("ghostwire.categorize").categorize
 
 
 def test_categorize_terminal_hit() -> None:
@@ -38,7 +38,7 @@ def test_categorize_returns_other_for_unknown_app() -> None:
 
 
 def test_load_config_parses_categorize_sections(tmp_path) -> None:
-    path = tmp_path / "aw-report.toml"
+    path = tmp_path / "ghostwire.toml"
     path.write_text(
         """
 [general]
@@ -76,7 +76,7 @@ allow = ["Safari"]
 
 
 def test_load_config_without_categorize_sections_still_works(tmp_path) -> None:
-    path = tmp_path / "aw-report.toml"
+    path = tmp_path / "ghostwire.toml"
     path.write_text(
         """
 [general]

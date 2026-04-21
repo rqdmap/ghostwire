@@ -5,11 +5,11 @@ from importlib import import_module
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
-from aw_report.config import Config
-from aw_report.models import HostMeta
+from ghostwire.config import Config
+from ghostwire.models import HostMeta
 
-hash_session_id = import_module("aw_report.sanitize").hash_session_id
-build_host_snapshot = import_module("aw_report.snapshot").build_host_snapshot
+hash_session_id = import_module("ghostwire.sanitize").hash_session_id
+build_host_snapshot = import_module("ghostwire.snapshot").build_host_snapshot
 
 
 def make_config() -> Config:
@@ -84,14 +84,14 @@ def build_snapshot(opencode_sessions=None):
 
     with (
         patch(
-            "aw_report.snapshot.discover_host_buckets", return_value=mock_buckets
+            "ghostwire.snapshot.discover_host_buckets", return_value=mock_buckets
         ) as mock_discover,
         patch(
-            "aw_report.snapshot.collect_active_windows",
+            "ghostwire.snapshot.collect_active_windows",
             return_value=(make_events(), 3000, 0),
         ) as mock_collect,
         patch(
-            "aw_report.snapshot.sanitize_snapshot",
+            "ghostwire.snapshot.sanitize_snapshot",
             side_effect=lambda payload: payload,
         ) as mock_sanitize,
     ):

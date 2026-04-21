@@ -1,6 +1,6 @@
 import pytest
 
-from aw_report.models import HostMeta, HostSnapshot, OpenCodeBurst, OpenCodeSession
+from ghostwire.models import HostMeta, HostSnapshot, OpenCodeBurst, OpenCodeSession
 
 
 def make_snapshot(

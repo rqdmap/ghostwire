@@ -1,7 +1,7 @@
 [project]
-name = "aw-report"
-version = "0.1.0"
-description = "Deterministic ActivityWatch report generator. No LLM, just facts."
+name = "ghostwire"
+version = "0.2.0"
+description = "Local AW + OpenCode telemetry collector with private upload server."
 requires-python = ">=3.11"
 dependencies = [
     "click>=8.0",
@@ -9,13 +9,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+server = [
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
+]
 dev = [
     "pytest>=8",
     "pytest-cov",
+    "fastapi>=0.110",
+    "uvicorn>=0.27",
 ]
 
 [project.scripts]
-aw-report = "aw_report.cli:main"
+ghostwire = "ghostwire.cli:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

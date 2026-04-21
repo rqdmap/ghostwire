@@ -7,10 +7,10 @@ from importlib import import_module
 from pathlib import Path
 from xml.etree import ElementTree
 
-from aw_report.aggregate_dashboard import aggregate
-from aw_report.models import HostSnapshot, TimelineEntry
+from ghostwire.aggregate_dashboard import aggregate
+from ghostwire.models import HostSnapshot, TimelineEntry
 
-render_svg = import_module("aw_report.render_svg")
+render_svg = import_module("ghostwire.render_svg")
 _token_line_points = render_svg._token_line_points
 render_dashboard = render_svg.render_dashboard
 

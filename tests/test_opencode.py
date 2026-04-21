@@ -17,9 +17,9 @@ def load_module(module_name: str, relative_path: str):
     return module
 
 
-concurrency = load_module("aw_report.concurrency", "aw_report/concurrency.py")
-sanitize = load_module("aw_report.sanitize", "aw_report/sanitize.py")
-opencode = load_module("aw_report.opencode", "aw_report/opencode.py")
+concurrency = load_module("ghostwire.concurrency", "ghostwire/concurrency.py")
+sanitize = load_module("ghostwire.sanitize", "ghostwire/sanitize.py")
+opencode = load_module("ghostwire.opencode", "ghostwire/opencode.py")
 
 Burst = concurrency.Burst
 OPENCODE_DB = opencode.OPENCODE_DB

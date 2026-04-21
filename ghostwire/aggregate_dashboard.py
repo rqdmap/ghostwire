@@ -4,11 +4,11 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 from typing import TYPE_CHECKING, Optional
 
-from aw_report.concurrency import Burst
-from aw_report.models import HostSnapshot
+from .concurrency import Burst
+from .models import HostSnapshot
 
 if TYPE_CHECKING:
-    from aw_report.models import BestDay, Cards, Dashboard, TimelineEntry
+    from .models import BestDay, Cards, Dashboard, TimelineEntry
 
 
 def merge_host_snapshots(snapshots: list[HostSnapshot]) -> dict:
@@ -87,7 +87,7 @@ def build_timeline_30d(
     Return exactly 30 TimelineEntry items (today-29 through today).
     Missing dates get zeros.
     """
-    from aw_report.models import TimelineEntry
+    from .models import TimelineEntry
 
     entries: list[TimelineEntry] = []
     for i in range(29, -1, -1):
@@ -138,7 +138,7 @@ def compute_rhythm_7d(
 
 
 def select_best_day(timeline: list["TimelineEntry"]) -> "BestDay":
-    from aw_report.models import BestDay
+    from .models import BestDay
 
     best = max(
         timeline,
@@ -162,7 +162,7 @@ def build_cards(
     workstations: list[dict],
     today: date,
 ) -> "Cards":
-    from aw_report.models import Cards, SessionLoad, WorkstationEntry
+    from .models import Cards, SessionLoad, WorkstationEntry
 
     del today
 
@@ -206,8 +206,8 @@ def aggregate(
 ) -> "Dashboard":
     from datetime import date as date_type
 
-    from aw_report.concurrency import compute_concurrency
-    from aw_report.models import (
+    from .concurrency import compute_concurrency
+    from .models import (
         ApplicationEntry,
         Dashboard,
         DashboardHeader,

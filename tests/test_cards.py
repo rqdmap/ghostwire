@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from datetime import date
 
-from aw_report.aggregate_dashboard import (
+from ghostwire.aggregate_dashboard import (
     build_cards,
     compute_delta_pct,
     select_best_day,
 )
-from aw_report.concurrency import ConcurrencyMetrics
-from aw_report.models import TimelineEntry
+from ghostwire.concurrency import ConcurrencyMetrics
+from ghostwire.models import TimelineEntry
 
 
 def make_timeline(days: list[tuple[str, int, int, int, int]]) -> list[TimelineEntry]:

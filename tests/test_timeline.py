@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
-from aw_report.aggregate_dashboard import (
+from ghostwire.aggregate_dashboard import (
     build_timeline_30d,
     compute_delta_pct,
     compute_rhythm_7d,

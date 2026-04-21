@@ -1,0 +1,40 @@
+name: Publish Ghostwire dashboard
+
+on:
+  schedule:
+    - cron: '15 1 * * *'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout profile repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ secrets.PROFILE_REPO }}
+          token: ${{ secrets.PROFILE_REPO_TOKEN }}
+          path: profile
+
+      - name: Fetch dashboard.svg from telemetry server
+        env:
+          TELEMETRY_URL: ${{ secrets.TELEMETRY_URL }}
+          READ_TOKEN: ${{ secrets.TELEMETRY_READ_TOKEN }}
+        run: |
+          curl -fsSL \
+            -H "Authorization: Bearer $READ_TOKEN" \
+            "${TELEMETRY_URL%/}/api/v1/dashboard.svg" \
+            -o profile/assets/dashboard.svg
+
+      - name: Commit and push
+        run: |
+          cd profile
+          git config user.email "actions@github.com"
+          git config user.name "GitHub Actions"
+          if git diff --quiet -- assets/dashboard.svg; then
+            echo "no change"
+            exit 0
+          fi
+          git add assets/dashboard.svg
+          git commit -m "chore(dashboard): refresh $(date -u +%Y-%m-%d)"
+          git push

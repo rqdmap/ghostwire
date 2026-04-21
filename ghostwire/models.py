@@ -4,7 +4,6 @@ import json
 import re
 from dataclasses import dataclass, field
 from dataclasses import asdict
-from datetime import datetime
 from typing import Any
 
 
@@ -13,104 +12,6 @@ class BucketInfo:
     id: str
     type: str
     hostname: str
-
-
-@dataclass
-class VimRecord:
-    host: str
-    start: datetime
-    end: datetime
-    duration_seconds: float
-    project: str | None = None
-    file: str | None = None
-    language: str | None = None
-
-
-@dataclass
-class InputRecord:
-    host: str
-    start: datetime
-    end: datetime
-    duration_seconds: float
-    presses: int = 0
-    clicks: int = 0
-    scroll_y: float = 0.0
-    mouse_distance: float = 0.0
-
-
-@dataclass
-class WindowRecord:
-    host: str
-    start: datetime
-    end: datetime
-    duration_seconds: float
-    app: str | None = None
-    title: str | None = None
-
-
-@dataclass
-class WebRecord:
-    host: str
-    start: datetime
-    end: datetime
-    duration_seconds: float
-    url: str | None = None
-    title: str | None = None
-    domain: str | None = None
-
-
-# ── Aggregated stats ──
-
-
-@dataclass
-class VimStats:
-    total_seconds: float = 0.0
-    by_project: list[dict] = field(default_factory=list)
-    by_language: list[dict] = field(default_factory=list)
-    top_files: list[dict] = field(default_factory=list)
-
-
-@dataclass
-class InputStats:
-    presses: int = 0
-    clicks: int = 0
-    scroll_y: float = 0.0
-    mouse_distance: float = 0.0
-    label: str = "none"
-
-
-@dataclass
-class WebStats:
-    top_domains: list[dict] = field(default_factory=list)
-    top_titles: list[dict] = field(default_factory=list)
-
-
-@dataclass
-class HostSection:
-    active_seconds: float = 0.0
-    afk_seconds: float = 0.0
-    vim: VimStats | None = None
-    input: InputStats | None = None
-    apps: list[dict] = field(default_factory=list)
-    web: WebStats | None = None
-
-
-@dataclass
-class ReportFacts:
-    schema_version: str = "1.0"
-    generator_version: str = "0.1.0"
-    generated_at: str = ""
-    report_type: str = "day"
-    aw_mode: str = "local"
-    scope_start: str = ""
-    scope_end: str = ""
-    scope_timezone: str = ""
-    scope_hosts: list[str] = field(default_factory=list)
-    source_base_url: str = ""
-    coverage: dict = field(default_factory=dict)
-    combined: HostSection = field(default_factory=HostSection)
-    per_host: dict[str, HostSection] = field(default_factory=dict)
-    notes: list[str] = field(default_factory=list)
 
 
 @dataclass

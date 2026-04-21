@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from aw_report.models import (
+from ghostwire.models import (
     ApplicationEntry,
     BestDay,
     Cards,
