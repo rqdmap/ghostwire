@@ -1,0 +1,4 @@
+pytest tests/test_sanitize.py -v: 12 passed
+lsp_diagnostics:
+  - aw_report/sanitize.py: clean
+  - tests/test_sanitize.py: clean
