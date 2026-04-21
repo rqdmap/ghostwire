@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tomllib
 from datetime import date
 from importlib import import_module
@@ -9,9 +10,19 @@ import click
 
 from . import __version__
 from .config import DEFAULT_CONFIG_PATHS, load_config
-from .models import HostMeta, HostSnapshot
+from .models import Dashboard, HostMeta, HostSnapshot
 
 build_host_snapshot = import_module("aw_report.snapshot").build_host_snapshot
+
+try:
+    from .aggregate_dashboard import aggregate
+except Exception:  # pragma: no cover - defensive import for partial repos
+    aggregate = None
+
+try:
+    render_dashboard = import_module("aw_report.render_svg").render_dashboard
+except Exception:  # pragma: no cover - defensive import for partial repos
+    render_dashboard = None
 
 
 def _resolve_config_path(config_path: Path | None) -> Path | None:
@@ -113,3 +124,69 @@ def snapshot_day(
 @main.command()
 def version() -> None:
     click.echo(__version__)
+
+
+@main.command("aggregate")
+@click.option(
+    "--in",
+    "in_dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path),
+    required=True,
+)
+@click.option("--out", "out_path", type=click.Path(path_type=Path), required=True)
+@click.option("--today", "today_str", default=None, help="YYYY-MM-DD override")
+@click.pass_context
+def aggregate_cmd(
+    ctx: click.Context,
+    in_dir: Path,
+    out_path: Path,
+    today_str: str | None,
+) -> None:
+    """Aggregate HostSnapshot JSON files from IN_DIR into a Dashboard JSON."""
+    del ctx
+
+    if aggregate is None:
+        raise click.ClickException("aggregate_dashboard is unavailable")
+
+    snapshots: list[HostSnapshot] = []
+    for file_path in sorted(in_dir.glob("*.json")):
+        try:
+            snapshots.append(
+                HostSnapshot.from_json(file_path.read_text(encoding="utf-8"))
+            )
+        except Exception as exc:
+            click.echo(f"Warning: skipping {file_path.name}: {exc}", err=True)
+
+    try:
+        today = date.fromisoformat(today_str) if today_str else date.today()
+    except ValueError as exc:
+        raise click.ClickException(f"invalid --today value: {today_str}") from exc
+
+    dashboard = aggregate(snapshots, today=today)
+    out_path.write_text(
+        json.dumps(dashboard.to_json(), indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
+    )
+    click.echo(f"Written to {out_path}")
+
+
+@main.command("render")
+@click.option(
+    "--in",
+    "in_path",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+)
+@click.option("--out", "out_path", type=click.Path(path_type=Path), required=True)
+@click.pass_context
+def render_cmd(ctx: click.Context, in_path: Path, out_path: Path) -> None:
+    """Render a Dashboard JSON into an SVG file."""
+    del ctx
+
+    if render_dashboard is None:
+        raise click.ClickException("render_svg is unavailable")
+
+    dashboard = Dashboard.from_json(in_path.read_text(encoding="utf-8"))
+    svg = render_dashboard(dashboard)
+    out_path.write_text(svg, encoding="utf-8")
+    click.echo(f"Written to {out_path}")
