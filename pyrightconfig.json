@@ -1,0 +1,10 @@
+{
+  "include": ["aw_report", "tests"],
+  "extraPaths": ["/Users/rqdmap/Codes/aw-report"],
+  "autoSearchPaths": true,
+  "executionEnvironments": [
+    {
+      "root": "/Users/rqdmap/Codes/aw-report"
+    }
+  ]
+}
