@@ -283,6 +283,7 @@ def build_daily_opencode(
             "session_id": "<sha256-truncated>",
             "model": "<dominant model id or None>",
             "tokens_total": int,
+            "by_model": [{"model": str, "tokens": int}],
             "bursts": [{"start": "...iso...", "end": "...iso..."}],
         }
     """
@@ -300,11 +301,18 @@ def build_daily_opencode(
         dominant_model: Optional[str] = None
         if usage["by_model"]:
             dominant_model = max(usage["by_model"], key=usage["by_model"].get)
+        by_model = [
+            {"model": model, "tokens": tokens}
+            for model, tokens in sorted(
+                usage["by_model"].items(), key=lambda kv: (-kv[1], kv[0])
+            )
+        ]
         out.append(
             {
                 "session_id": session["session_id"],
                 "model": dominant_model,
                 "tokens_total": usage["total"],
+                "by_model": by_model,
                 "bursts": [
                     {"start": b.start.isoformat(), "end": b.end.isoformat()}
                     for b in bursts

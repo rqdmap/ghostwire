@@ -47,7 +47,7 @@ def test_compute_delta_pct_handles_growth_and_zero_previous() -> None:
     assert compute_delta_pct(10, 0) == 0
 
 
-def test_compute_rhythm_7d_averages_available_days_only() -> None:
+def test_compute_rhythm_7d_zero_fills_missing_days() -> None:
     today = date(2026, 4, 21)
     merged_by_date = {
         (today - timedelta(days=1)).isoformat(): {"rhythm": [60] * 24},
@@ -58,7 +58,7 @@ def test_compute_rhythm_7d_averages_available_days_only() -> None:
     rhythm = compute_rhythm_7d(merged_by_date, today)
 
     assert len(rhythm) == 24
-    assert rhythm == [90] * 24
+    assert rhythm == [25] * 24
 
 
 def test_compute_rhythm_7d_returns_24_zeros_without_data() -> None:

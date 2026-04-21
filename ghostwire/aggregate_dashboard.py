@@ -120,21 +120,34 @@ def compute_rhythm_7d(
     """
     Average the rhythm arrays for the last 7 days.
     Returns 24-element list of average seconds/hour.
-    If fewer than 7 days of data, average what's available.
+    Missing days contribute zeros so the average always spans 7 logical days.
     """
     totals = [0.0] * 24
-    days_found = 0
     for i in range(6, -1, -1):
         d = today - timedelta(days=i)
         merged = merged_by_date.get(d.isoformat())
-        if merged and merged.get("rhythm"):
-            rhythm = merged["rhythm"]
-            for hour in range(24):
-                totals[hour] += rhythm[hour] if hour < len(rhythm) else 0
-            days_found += 1
-    if days_found == 0:
-        return [0] * 24
-    return [int(totals[hour] / days_found) for hour in range(24)]
+        rhythm = merged.get("rhythm", []) if merged else []
+        for hour in range(24):
+            totals[hour] += rhythm[hour] if hour < len(rhythm) else 0
+    return [int(totals[hour] / 7) for hour in range(24)]
+
+
+def _date_bounds(today: date, days: int) -> tuple[date, date]:
+    return today - timedelta(days=days - 1), today
+
+
+def _filter_merged_by_date(
+    merged_by_date: dict[str, dict],
+    start: date,
+    end: date,
+) -> dict[str, dict]:
+    start_str = start.isoformat()
+    end_str = end.isoformat()
+    return {
+        date_str: merged
+        for date_str, merged in merged_by_date.items()
+        if start_str <= date_str <= end_str
+    }
 
 
 def select_best_day(timeline: list["TimelineEntry"]) -> "BestDay":
@@ -221,23 +234,23 @@ def aggregate(
         today = date_type.today()
 
     merged_by_date = merge_snapshots_by_date(snapshots)
+    range_start, range_end = _date_bounds(today, 30)
+    range_merged = _filter_merged_by_date(merged_by_date, range_start, range_end)
     timeline_30d = build_timeline_30d(merged_by_date, today)
 
-    cutoff = today - timedelta(days=30)
-    prev_snapshots = [s for s in snapshots if s.date < cutoff.isoformat()]
-    prev_merged = merge_snapshots_by_date(prev_snapshots)
-    timeline_prev_30d = build_timeline_30d(prev_merged, cutoff)
+    previous_end = today - timedelta(days=30)
+    timeline_prev_30d = build_timeline_30d(merged_by_date, previous_end)
 
     rhythm_7d = compute_rhythm_7d(merged_by_date, today)
     best_day = select_best_day(timeline_30d)
 
     all_bursts: list[Burst] = []
-    for merged in merged_by_date.values():
+    for merged in range_merged.values():
         all_bursts.extend(merged.get("bursts", []))
     concurrency_metrics = compute_concurrency(all_bursts, day_start=day_start)
 
     ws_totals: dict[tuple[str, str], int] = {}
-    for merged in merged_by_date.values():
+    for merged in range_merged.values():
         for workstation in merged.get("workstations", []):
             key = (workstation["label"], workstation["platform"])
             ws_totals[key] = ws_totals.get(key, 0) + workstation["seconds"]
@@ -255,7 +268,7 @@ def aggregate(
     )
 
     app_totals: dict[str, int] = {"terminal": 0, "browser": 0, "other": 0}
-    for merged in merged_by_date.values():
+    for merged in range_merged.values():
         by_category = merged.get("by_category", {})
         for category in app_totals:
             app_totals[category] += by_category.get(category, 0)
@@ -270,7 +283,7 @@ def aggregate(
     ]
 
     model_totals: dict[str, int] = {}
-    for merged in merged_by_date.values():
+    for merged in range_merged.values():
         for model, tokens in merged.get("opencode_by_model", {}).items():
             model_totals[model] = model_totals.get(model, 0) + tokens
     models_30d = sorted(

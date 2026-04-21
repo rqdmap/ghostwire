@@ -24,6 +24,7 @@ opencode = load_module("ghostwire.opencode", "ghostwire/opencode.py")
 Burst = concurrency.Burst
 OPENCODE_DB = opencode.OPENCODE_DB
 extract_bursts = opencode.extract_bursts
+build_daily_opencode = opencode.build_daily_opencode
 extract_token_usage = opencode.extract_token_usage
 find_db = opencode.find_db
 read_sessions = opencode.read_sessions
@@ -340,6 +341,59 @@ def test_extract_token_usage_supports_multiple_usage_shapes() -> None:
             "gpt-5.4": 75,
         },
     }
+
+
+def test_build_daily_opencode_preserves_exact_per_session_model_breakdown(
+    monkeypatch, tmp_path
+) -> None:
+    raw_session_id = "ses-mixed-models"
+    connection = build_connection(
+        [
+            (
+                raw_session_id,
+                to_ms("2026-04-21T09:00:00+00:00"),
+                {
+                    "role": "assistant",
+                    "time": {"created": to_ms("2026-04-21T09:00:00+00:00")},
+                    "modelID": "claude-sonnet-4.6",
+                    "metadata": {"usage": {"inputTokens": 100, "outputTokens": 20}},
+                },
+            ),
+            (
+                raw_session_id,
+                to_ms("2026-04-21T09:05:00+00:00"),
+                {
+                    "role": "assistant",
+                    "time": {"created": to_ms("2026-04-21T09:05:00+00:00")},
+                    "modelID": "gpt-5.4",
+                    "metadata": {"usage": {"inputTokens": 50, "outputTokens": 10}},
+                },
+            ),
+        ]
+    )
+    db_path = tmp_path / "mock.db"
+    db_path.touch()
+    monkeypatch.setattr(opencode.sqlite3, "connect", lambda _: connection)
+
+    sessions = build_daily_opencode(date(2026, 4, 21), db_path=db_path)
+
+    assert sessions == [
+        {
+            "session_id": hash_session_id(raw_session_id),
+            "model": "claude-sonnet-4.6",
+            "tokens_total": 180,
+            "by_model": [
+                {"model": "claude-sonnet-4.6", "tokens": 120},
+                {"model": "gpt-5.4", "tokens": 60},
+            ],
+            "bursts": [
+                {
+                    "start": "2026-04-21T09:00:00+00:00",
+                    "end": "2026-04-21T09:05:00+00:00",
+                }
+            ],
+        }
+    ]
 
 
 def test_extract_token_usage_returns_zero_without_usage() -> None:

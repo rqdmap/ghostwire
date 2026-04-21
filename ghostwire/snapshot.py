@@ -130,9 +130,19 @@ def _build_opencode(sessions: list[dict[str, Any]]) -> dict[str, Any]:
         tokens = int(session.get("tokens_total", session.get("tokens", 0)))
         tokens_total += tokens
 
-        model = session.get("model") or session.get("model_name")
-        if model:
-            by_model[model] = by_model.get(model, 0) + tokens
+        exact_by_model = session.get("by_model")
+        if isinstance(exact_by_model, list) and exact_by_model:
+            for entry in exact_by_model:
+                if not isinstance(entry, dict):
+                    continue
+                model = entry.get("model")
+                if not isinstance(model, str) or not model:
+                    continue
+                by_model[model] = by_model.get(model, 0) + int(entry.get("tokens", 0))
+        else:
+            model = session.get("model") or session.get("model_name")
+            if model:
+                by_model[model] = by_model.get(model, 0) + tokens
 
         bursts = [
             OpenCodeBurst(start=b["start"], end=b["end"])

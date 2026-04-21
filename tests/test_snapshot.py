@@ -214,3 +214,31 @@ def test_build_host_snapshot_aggregates_opencode_and_hashes_session_ids() -> Non
         hash_session_id("ses_raw_1"),
         hash_session_id("ses_raw_2"),
     ]
+
+
+def test_build_host_snapshot_prefers_exact_opencode_by_model_breakdown() -> None:
+    snapshot, _, _, _ = build_snapshot(
+        [
+            {
+                "session_id": "ses_raw_1",
+                "model": "claude-sonnet",
+                "tokens_total": 1000,
+                "by_model": [
+                    {"model": "claude-sonnet", "tokens": 700},
+                    {"model": "gpt-4o", "tokens": 300},
+                ],
+                "bursts": [
+                    {
+                        "start": "2026-04-21T09:00:00+08:00",
+                        "end": "2026-04-21T09:30:00+08:00",
+                    }
+                ],
+            }
+        ]
+    )
+
+    assert snapshot.opencode["tokens_total"] == 1000
+    assert snapshot.opencode["by_model"] == [
+        {"model": "claude-sonnet", "tokens": 700},
+        {"model": "gpt-4o", "tokens": 300},
+    ]
