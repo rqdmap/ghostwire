@@ -1,0 +1,2 @@
+- Kept tests minimal: __init__.py, empty conftest.py, and one smoke test only.
+- Used tests/fixtures/ as an empty placeholder directory for future test assets.

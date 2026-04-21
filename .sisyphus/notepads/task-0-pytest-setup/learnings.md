@@ -1,0 +1,3 @@
+- Added pytest config via PEP 621 optional dependencies and tool.pytest.ini_options.
+- Smoke test can import aw_report and assert the package version directly from aw_report.__version__.
+- On this machine, Python needed env cleanup plus --break-system-packages to complete editable installs.

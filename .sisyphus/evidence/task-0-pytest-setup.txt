@@ -1,0 +1,11 @@
+Command: python3 -m pip install --break-system-packages -e ".[dev]" && pytest -v
+
+Result: success
+
+pytest -v output:
+- 1 collected
+- 1 passed
+
+Notes:
+- Used env -u PYTHONHOME -u PYTHONPATH to avoid local Python env issues.
+- System Python required --break-system-packages for editable install.

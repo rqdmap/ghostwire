@@ -1,0 +1,25 @@
+[project]
+name = "aw-report"
+version = "0.1.0"
+description = "Deterministic ActivityWatch report generator. No LLM, just facts."
+requires-python = ">=3.11"
+dependencies = [
+    "click>=8.0",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8",
+    "pytest-cov",
+]
+
+[project.scripts]
+aw-report = "aw_report.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
