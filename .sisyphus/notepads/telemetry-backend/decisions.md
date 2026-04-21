@@ -1,4 +1,3 @@
-- Task 5: implemented concurrency metrics with a grouped timestamp sweep-line so simultaneous event boundaries are handled deterministically across avg and peak calculations
-- Task 5: daily_avg_7d is derived from burst segments split at day boundaries, then recomputed per day with the same weighted formula used for the overall metric
-- Task 7: OpenCode session reads stay privacy-safe by parsing SQLite message JSON only for role, timestamps, model/provider IDs, and token usage fields, never text/content payloads
-- Task 7: burst extraction returns UTC `Burst` windows keyed by hashed session IDs, and token totals accept both camelCase and snake_case usage counters
+Appended decisions for T11-T13:
+- Implemented timeline, rhythm, best-day, and cards builders as pure functions in aw_report/aggregate_dashboard.py.
+- Kept model construction inside function bodies for minimal import surface and to preserve the no-circular-dependency constraint.

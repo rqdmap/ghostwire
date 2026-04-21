@@ -1,6 +1,4 @@
-- Task 5: session load metrics should use union-time weighting, not a simple arithmetic mean, so idle windows with c(t)=0 never dilute avg_concurrent
-- Task 5: return_median_seconds is easiest to compute by merging overlapping bursts per session, then taking median gaps between merged spans
-- Task 8: snapshot assembly should expose only allowlisted app names in `applications`, while all non-allowlisted durations still roll up into `active.by_category["other"]`
-- Task 8: lazy import wrappers for AW collectors keep `snapshot.py` testable even when `aw_client.py` or `collect.py` are provided later in the pipeline
-- Task 9: read `[host_meta.*]` from raw TOML separately from `Config`, because CLI commands need host label/platform metadata without widening the core config dataclass
-- Task 9: `click.ClickException` is enough for missing host config failures, and it keeps the command exit code at 1 with a clear stderr message
+Appended learnings for T11-T13:
+- Keep dashboard builders pure and local to aw_report/aggregate_dashboard.py to avoid circular imports.
+- Use zero-fill timelines over the exact 30-day window, and compute 7-day rhythm from the available merged daily rhythm arrays.
+- Pyright needs TYPE_CHECKING imports for annotation-only model names when the module stays lightweight.
