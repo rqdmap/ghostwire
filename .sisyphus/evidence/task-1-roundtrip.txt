@@ -1,0 +1,3 @@
+Command: python3 -m pytest tests/test_host_snapshot_schema.py -v
+Result: 6 passed
+Notes: HostSnapshot schema roundtrip and validation verified.
