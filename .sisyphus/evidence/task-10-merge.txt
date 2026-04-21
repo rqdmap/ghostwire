@@ -1,0 +1,31 @@
+Task T10: Cross-host merge (aggregate_dashboard.py)
+=====================================================
+
+Files created:
+  aw_report/aggregate_dashboard.py
+  tests/test_merge_hosts.py
+
+Functions implemented:
+  merge_host_snapshots(snapshots: list[HostSnapshot]) -> dict
+  merge_snapshots_by_date(all_snapshots: list[HostSnapshot]) -> dict[str, dict]
+
+Test results (pytest tests/test_merge_hosts.py -v):
+============================== 24 passed in 0.03s ==============================
+
+Test classes:
+  TestActiveTotals         (3 tests) - active_total_seconds + by_category summing
+  TestApplicationsMerge    (3 tests) - merge by (name, category), keep distinct
+  TestRhythm               (2 tests) - 24-element element-wise sum
+  TestOpencodeTokens       (3 tests) - tokens_total + by_model model merging
+  TestBursts               (3 tests) - OpenCodeBurst -> Burst conversion, collection
+  TestWorkstations         (2 tests) - one entry per host snapshot
+  TestMergeSnapshotsByDate (4 tests) - grouping by date
+  TestFixtureIntegration   (4 tests) - real fixture JSON files
+
+Key design decisions:
+  - HostSnapshot.active is dict, accessed via .get()
+  - HostSnapshot.opencode is dict, sessions are list[OpenCodeSession]
+  - OpenCodeBurst.start/end are ISO str -> converted to datetime via fromisoformat()
+  - Burst objects from concurrency.py used as-is (frozen dataclass)
+  - Applications merged by (name, category) tuple key
+  - opencode_by_model stored as dict[str, int] (not list)
