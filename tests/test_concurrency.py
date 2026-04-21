@@ -1,21 +1,14 @@
-import importlib.util
 import sys
-from pathlib import Path
 from datetime import datetime, timedelta
 
 import pytest
 
-
-MODULE_PATH = Path(__file__).resolve().parents[1] / "aw_report" / "concurrency.py"
-SPEC = importlib.util.spec_from_file_location("aw_report.concurrency", MODULE_PATH)
-assert SPEC is not None and SPEC.loader is not None
-concurrency = importlib.util.module_from_spec(SPEC)
-sys.modules[SPEC.name] = concurrency
-SPEC.loader.exec_module(concurrency)
+from aw_report import concurrency
+from aw_report.concurrency import Burst, ConcurrencyMetrics, compute_concurrency
 
 
 def burst(start: str, end: str, session_id: str):
-    return concurrency.Burst(
+    return Burst(
         start=datetime.fromisoformat(start),
         end=datetime.fromisoformat(end),
         session_id=session_id,
@@ -23,7 +16,7 @@ def burst(start: str, end: str, session_id: str):
 
 
 def test_empty_input_returns_zero_metrics() -> None:
-    metrics = concurrency.compute_concurrency([])
+    metrics = compute_concurrency([])
 
     assert metrics.avg_concurrent == 0.0
     assert metrics.peak_concurrent == 0
@@ -32,7 +25,7 @@ def test_empty_input_returns_zero_metrics() -> None:
 
 
 def test_single_burst_has_peak_one_and_average_one() -> None:
-    metrics = concurrency.compute_concurrency(
+    metrics = compute_concurrency(
         [burst("2026-04-01T09:00:00+00:00", "2026-04-01T10:00:00+00:00", "s1")]
     )
 
@@ -43,7 +36,7 @@ def test_single_burst_has_peak_one_and_average_one() -> None:
 
 
 def test_two_overlapping_sessions_raise_peak_to_two() -> None:
-    metrics = concurrency.compute_concurrency(
+    metrics = compute_concurrency(
         [
             burst("2026-04-01T09:00:00+00:00", "2026-04-01T10:00:00+00:00", "s1"),
             burst("2026-04-01T09:30:00+00:00", "2026-04-01T10:30:00+00:00", "s2"),
@@ -55,7 +48,7 @@ def test_two_overlapping_sessions_raise_peak_to_two() -> None:
 
 
 def test_non_overlapping_bursts_keep_peak_at_one() -> None:
-    metrics = concurrency.compute_concurrency(
+    metrics = compute_concurrency(
         [
             burst("2026-04-01T09:00:00+00:00", "2026-04-01T10:00:00+00:00", "s1"),
             burst("2026-04-01T10:00:00+00:00", "2026-04-01T11:00:00+00:00", "s2"),
@@ -74,7 +67,7 @@ def test_weighted_average_is_not_simple_arithmetic_mean() -> None:
         burst("2026-04-01T10:00:00+00:00", "2026-04-01T11:00:00+00:00", "s3"),
     ]
 
-    metrics = concurrency.compute_concurrency(bursts)
+    metrics = compute_concurrency(bursts)
     arithmetic_mean = (1 + 4 + 3 + 2 + 1) / 5
 
     assert metrics.avg_concurrent == pytest.approx(59 / 36)
@@ -82,7 +75,7 @@ def test_weighted_average_is_not_simple_arithmetic_mean() -> None:
 
 
 def test_return_median_seconds_uses_session_return_gaps() -> None:
-    metrics = concurrency.compute_concurrency(
+    metrics = compute_concurrency(
         [
             burst("2026-04-01T09:00:00+00:00", "2026-04-01T10:00:00+00:00", "s1"),
             burst("2026-04-01T10:30:00+00:00", "2026-04-01T11:00:00+00:00", "s1"),
@@ -95,7 +88,7 @@ def test_return_median_seconds_uses_session_return_gaps() -> None:
 
 
 def test_peak_detection_handles_four_overlapping_bursts() -> None:
-    metrics = concurrency.compute_concurrency(
+    metrics = compute_concurrency(
         [
             burst("2026-04-01T09:00:00+00:00", "2026-04-01T10:00:00+00:00", "a"),
             burst("2026-04-01T09:15:00+00:00", "2026-04-01T10:15:00+00:00", "b"),
@@ -110,7 +103,7 @@ def test_peak_detection_handles_four_overlapping_bursts() -> None:
 def test_daily_avg_7d_keeps_only_last_seven_days() -> None:
     start = datetime.fromisoformat("2026-04-01T09:00:00+00:00")
     bursts = [
-        concurrency.Burst(
+        Burst(
             start=start + timedelta(days=day),
             end=start + timedelta(days=day, hours=1),
             session_id=f"s{day}",
@@ -118,7 +111,7 @@ def test_daily_avg_7d_keeps_only_last_seven_days() -> None:
         for day in range(10)
     ]
 
-    metrics = concurrency.compute_concurrency(bursts)
+    metrics = compute_concurrency(bursts)
 
     assert len(metrics.daily_avg_7d) == 7
     assert all(day_avg == pytest.approx(1.0) for day_avg in metrics.daily_avg_7d)
@@ -131,22 +124,22 @@ def test_seven_day_fixture_hits_expected_peak_and_average_range() -> None:
         day_start = start + timedelta(days=day)
         bursts.extend(
             [
-                concurrency.Burst(
+                Burst(
                     start=day_start + timedelta(hours=9),
                     end=day_start + timedelta(hours=12),
                     session_id="session-a",
                 ),
-                concurrency.Burst(
+                Burst(
                     start=day_start + timedelta(hours=10),
                     end=day_start + timedelta(hours=10, minutes=15),
                     session_id="session-a",
                 ),
-                concurrency.Burst(
+                Burst(
                     start=day_start + timedelta(hours=10),
                     end=day_start + timedelta(hours=10, minutes=40),
                     session_id="session-b",
                 ),
-                concurrency.Burst(
+                Burst(
                     start=day_start + timedelta(hours=10),
                     end=day_start + timedelta(hours=11),
                     session_id="session-c",
@@ -154,7 +147,7 @@ def test_seven_day_fixture_hits_expected_peak_and_average_range() -> None:
             ]
         )
 
-    metrics = concurrency.compute_concurrency(bursts)
+    metrics = compute_concurrency(bursts)
 
     assert metrics.peak_concurrent == 4
     assert 1.6 <= metrics.avg_concurrent <= 1.8
