@@ -1,2 +1,3 @@
 Created snapshot and dashboard JSON fixtures for downstream tests.
 Validated via schema tests in tests/test_fixtures_schema.py.
+Added coverage for timeline_30d and rhythm_7d lengths.

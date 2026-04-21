@@ -38,3 +38,5 @@ def test_dashboard_fixture_is_valid_json():
         "rhythm_7d",
     }
     assert required_keys.issubset(data)
+    assert len(data["timeline_30d"]) == 30
+    assert len(data["rhythm_7d"]) == 24
