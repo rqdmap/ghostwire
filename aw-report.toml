@@ -1,0 +1,27 @@
+[general]
+timezone = "Asia/Shanghai"
+
+[activitywatch]
+base_url = "http://127.0.0.1:5600"
+timeout_seconds = 30
+# "auto" = discover all hosts from buckets
+# or explicit list: ["home-mac", "company-mac"]
+hosts = ["auto"]
+
+[report]
+default_format = "md"    # "md" or "json"
+include_window = true
+include_afk = true
+include_web = true
+include_vim = true
+include_input = true
+
+[input_labels]
+# label = whichever score is highest by this ratio over the runner-up
+dominance_ratio = 1.5
+
+[categorize.terminal]
+allow = ["Alacritty", "iTerm2", "kitty", "Neovim", "Code", "WezTerm", "Terminal", "Hyper"]
+
+[categorize.browser]
+allow = ["Google Chrome", "Chromium", "Firefox", "Safari", "Arc", "Brave Browser"]
