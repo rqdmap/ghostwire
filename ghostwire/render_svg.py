@@ -49,6 +49,27 @@ def _xml_text(value: object) -> str:
     return escape(str(value))
 
 
+def _short_model(model_id: str) -> str:
+    label = model_id.lower()
+    for prefix, short in (
+        ("gpt-5.4-mini", "GPT-5.4 mini"),
+        ("gpt-5.4", "GPT-5.4"),
+        ("gpt-4o-mini", "GPT-4o mini"),
+        ("gpt-4o", "GPT-4o"),
+        ("claude-opus-4", "Claude Opus 4"),
+        ("claude-opus", "Claude Opus"),
+        ("claude-sonnet-4", "Claude Sonnet 4"),
+        ("claude-sonnet", "Claude Sonnet"),
+        ("claude-haiku", "Claude Haiku"),
+        ("gemini-2.5-pro", "Gemini 2.5 Pro"),
+        ("gemini-2.5-flash", "Gemini 2.5 Flash"),
+        ("gemini", "Gemini"),
+    ):
+        if label.startswith(prefix):
+            return short
+    return model_id[:20]
+
+
 def render_dashboard(dashboard: Dashboard) -> str:
     tmpl = Template(TEMPLATE_PATH.read_text(encoding="utf-8"))
 
@@ -94,6 +115,15 @@ def render_dashboard(dashboard: Dashboard) -> str:
         ),
         "APP3_H": _xml_text(
             _h(applications[2].seconds) if len(applications) > 2 else "0.0h"
+        ),
+        "MODEL1_LABEL": _xml_text(
+            _short_model(models[0].model) if len(models) > 0 else ""
+        ),
+        "MODEL2_LABEL": _xml_text(
+            _short_model(models[1].model) if len(models) > 1 else ""
+        ),
+        "MODEL3_LABEL": _xml_text(
+            _short_model(models[2].model) if len(models) > 2 else ""
         ),
         "MODEL1_T": _xml_text(
             f"{models[0].tokens / 1_000_000:.1f}M" if len(models) > 0 else "0.0M"

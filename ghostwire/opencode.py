@@ -503,6 +503,10 @@ def _extract_usage_dict(payload: dict[str, Any]) -> Optional[dict[str, Any]]:
 def _usage_total(message: dict[str, Any]) -> int:
     candidates: list[dict[str, Any]] = []
 
+    tokens = message.get("tokens")
+    if isinstance(tokens, dict):
+        candidates.append(tokens)
+
     usage = message.get("usage")
     if isinstance(usage, dict):
         candidates.append(usage)
@@ -523,23 +527,27 @@ def _usage_total(message: dict[str, Any]) -> int:
 
 
 def _sum_usage_fields(usage: dict[str, Any]) -> Optional[int]:
+    cache = usage.get("cache")
+    cache_read = _coerce_int(cache.get("read") if isinstance(cache, dict) else None) or 0
+    cache_write = _coerce_int(cache.get("write") if isinstance(cache, dict) else None) or 0
+
     pairs = (
         ("inputTokens", "outputTokens"),
         ("input_tokens", "output_tokens"),
         ("promptTokens", "completionTokens"),
         ("prompt_tokens", "completion_tokens"),
-        ("input", "output"),  # OpenCode native shape: tokens.input / tokens.output
+        ("input", "output"),
     )
     for in_key, out_key in pairs:
         in_tok = _coerce_int(usage.get(in_key))
         out_tok = _coerce_int(usage.get(out_key))
         if in_tok is not None or out_tok is not None:
-            return (in_tok or 0) + (out_tok or 0)
+            return (in_tok or 0) + (out_tok or 0) + cache_read + cache_write
 
-    for total_key in ("totalTokens", "total_tokens", "tokens"):
+    for total_key in ("totalTokens", "total_tokens"):
         total = _coerce_int(usage.get(total_key))
         if total is not None:
-            return total
+            return total + cache_read + cache_write
     return None
 
 
